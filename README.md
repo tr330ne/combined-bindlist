@@ -2,9 +2,9 @@
 
 RusherHack Hud Element to display BindList from both meteorclient and rusherhack with customization and ability to hide individual modules.
 
-- **```*combindlist``` to manage all modules with assigned keybinds;**
+- **```*combindlist``` to manage all modules with assigned keybinds.**
 
-- alternatively, you can use **```*drawn```** to hide and show specifically RusherHack modules, **which will also hide them from the FeatureList Hud Element!**
+- Alternatively, you can use **```*drawn```** to hide and show specifically RusherHack modules, **which will also hide them from the FeatureList Hud Element!**
 
 - **For some external modules (plugins) with specific names,** you need to use quotation marks around the module name, for example: **```*combindlist add "Item Frame Dupe"```**
 
