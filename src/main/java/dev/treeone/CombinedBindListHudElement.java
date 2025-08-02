@@ -174,22 +174,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                                 method.getReturnType() == int.class) {
 
                             int glfwKey = (int) method.invoke(keybind);
-                            String formatted = formatGLFWKey(glfwKey);
-
-                            // Additional check for cases that might not be caught in formatGLFWKey
-                            switch (formatted) {
-                                case "KEY_0": return "Mouse Left";
-                                case "KEY_1": return "Mouse Right";
-                                case "KEY_2": return "Middle";
-                                case "KEY_3": return "Side Down";
-                                case "KEY_4": return "Side Up";
-                                case "LEFT_CONTROL": return "Left Ctrl";
-                                case "RIGHT_CONTROL": return "Right Ctrl";
-                                case "LEFT_ALT": return "Left Alt";
-                                case "RIGHT_ALT": return "Right Alt";
-                                case "LEFT_SUPER": return "Win";
-                                default: return formatted;
-                            }
+                            return formatGLFWKey(glfwKey);
                         }
                     }
 
@@ -197,61 +182,19 @@ public class CombinedBindListHudElement extends ListHudElement {
                     Field keyField = keybind.getClass().getDeclaredField("key");
                     keyField.setAccessible(true);
                     int glfwKey = keyField.getInt(keybind);
-                    String formatted = formatGLFWKey(glfwKey);
-
-                    // Additional check for cases that might not be caught in formatGLFWKey
-                    switch (formatted) {
-                        case "KEY_0": return "Mouse Left";
-                        case "KEY_1": return "Mouse Right";
-                        case "KEY_2": return "Middle";
-                        case "KEY_3": return "Side Down";
-                        case "KEY_4": return "Side Up";
-                        case "LEFT_CONTROL": return "Left Ctrl";
-                        case "RIGHT_CONTROL": return "Right Ctrl";
-                        case "LEFT_ALT": return "Left Alt";
-                        case "RIGHT_ALT": return "Right Alt";
-                        case "LEFT_SUPER": return "Win";
-                        default: return formatted;
-                    }
+                    return formatGLFWKey(glfwKey);
 
                 } catch (Exception e) {
                     // If nothing works, use the default method
                     String rawKeybind = meteorModule.keybind.toString();
-                    String formatted = formatKeybind(rawKeybind);
-
-                    // Additional checks for cases that might not be caught
-                    switch (formatted) {
-                        case "KEY_0": return "Mouse Left";
-                        case "KEY_1": return "Mouse Right";
-                        case "KEY_2": return "Middle";
-                        case "KEY_3": return "Side Down";
-                        case "KEY_4": return "Side Up";
-                        case "LEFT_CONTROL": return "Left Ctrl";
-                        case "RIGHT_CONTROL": return "Right Ctrl";
-                        case "LEFT_ALT": return "Left Alt";
-                        case "RIGHT_ALT": return "Right Alt";
-                        case "LEFT_SUPER": return "Win";
-                        case "0": return "Mouse Left";
-                        case "1": return "Mouse Right";
-                        case "2": return "Middle";
-                        case "3": return "Side Down";
-                        case "4": return "Side Up";
-                        default: return formatted;
-                    }
+                    return formatKeybind(rawKeybind);
                 }
             } else if (moduleType == ModuleType.RUSHER) {
                 try {
                     final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
                     if (key != null) {
                         String rawLabel = key.getLabel(true); // Get the raw name
-                        String formatted = formatRusherKeybind(rawLabel);
-
-                        // Additional check for Left Super specifically
-                        if (formatted.equals("Left Super")) {
-                            return "Win";
-                        }
-
-                        return formatted;
+                        return formatRusherKeybind(rawLabel);
                     }
                 } catch (Exception e) {
                     // Ignore errors
@@ -265,25 +208,8 @@ public class CombinedBindListHudElement extends ListHudElement {
         private String formatRusherKeybind(String keybind) {
             if (keybind == null || keybind.isEmpty()) return "unbound";
 
-            // Trim whitespace and check for Left Super variations
-            String trimmed = keybind.trim();
-            if (trimmed.equalsIgnoreCase("Left Super") ||
-                    trimmed.equalsIgnoreCase("LEFTSUPER") ||
-                    trimmed.contains("Left Super")) {
-                return "Win";
-            }
-
-            // Check mouse buttons first
-            switch (trimmed) {
-                case "MOUSE_1": return "Mouse Left";
-                case "MOUSE_2": return "Mouse Right";
-                case "MOUSE_3": return "Middle";
-                case "MOUSE_4": return "Side Down";
-                case "MOUSE_5": return "Side Up";
-            }
-
             // Check numpad keys with the KEY_KP_ prefix
-            switch (trimmed) {
+            switch (keybind) {
                 case "KEY_KP_0": return "Num 0";
                 case "KEY_KP_1": return "Num 1";
                 case "KEY_KP_2": return "Num 2";
@@ -309,6 +235,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 case "KEY_RIGHT_CONTROL": return "Right Ctrl";
                 case "KEY_LEFT_ALT": return "Left Alt";
                 case "KEY_RIGHT_ALT": return "Right Alt";
+                case "KEY_LEFT_SUPER": return "Left Super";
                 case "KEY_RIGHT_SUPER": return "Right Super";
                 case "KEY_CAPS_LOCK": return "Caps Lock";
                 case "KEY_NUM_LOCK": return "Num Lock";
@@ -351,12 +278,12 @@ public class CombinedBindListHudElement extends ListHudElement {
                 case "KEY_LEFT_BRACKET": return "[";
                 case "KEY_BACKSLASH": return "\\";
                 case "KEY_RIGHT_BRACKET": return "]";
-                case "KEY_GRAVE_ACCENT": return "Grave";
+                case "KEY_GRAVE_ACCENT": return "`";
 
                 // Remove the KEY_ prefix for the remaining keys
                 default:
-                    if (trimmed.startsWith("KEY_")) {
-                        String withoutPrefix = trimmed.substring(4); // Remove "KEY_"
+                    if (keybind.startsWith("KEY_")) {
+                        String withoutPrefix = keybind.substring(4); // Remove "KEY_"
 
                         // If it's a digit or letter, return as is
                         if (withoutPrefix.matches("^[0-9A-Z]$")) {
@@ -366,7 +293,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                         // For the rest, apply pretty formatting
                         return formatKeyName(withoutPrefix);
                     }
-                    return trimmed;
+                    return keybind;
             }
         }
 
@@ -393,15 +320,6 @@ public class CombinedBindListHudElement extends ListHudElement {
 
         // Method for formatting GLFW keys
         private String formatGLFWKey(int glfwKey) {
-            // GLFW constants for mouse buttons
-            switch (glfwKey) {
-                case -100: return "Mouse Left";  // Mouse Left button
-                case -99: return "Mouse Right";  // Mouse Right button
-                case -98: return "Middle";  // Mouse Middle button
-                case -97: return "Side Down"; // Mouse 3 button
-                case -96: return "Side Up"; // Mouse 4 button
-            }
-
             // GLFW constants for numpad
             switch (glfwKey) {
                 case 320: return "Num 0";  // GLFW_KEY_KP_0
@@ -470,11 +388,11 @@ public class CombinedBindListHudElement extends ListHudElement {
                 case 284: return "PAUSE";
                 case 340: return "LEFT_SHIFT";
                 case 341: return "LEFT_CONTROL";
-                case 342: return "Left Alt";
-                case 343: return "Win";  // LEFT_SUPER -> Win
+                case 342: return "LEFT_ALT";
+                case 343: return "LEFT_SUPER";
                 case 344: return "RIGHT_SHIFT";
                 case 345: return "RIGHT_CONTROL";
-                case 346: return "Right Alt";
+                case 346: return "RIGHT_ALT";
                 case 347: return "RIGHT_SUPER";
                 case 348: return "MENU";
 
@@ -489,7 +407,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 case 91: return "[";
                 case 92: return "\\";
                 case 93: return "]";
-                case 96: return "Grave";  // Grave Accent -> Grave
+                case 96: return "`";
 
                 // For unknown keys, try using GLFW
                 default:
@@ -508,21 +426,8 @@ public class CombinedBindListHudElement extends ListHudElement {
         private String formatKeybind(String keybind) {
             if (keybind == null) return "unbound";
 
-            // Handle special cases first (including mouse buttons and special keys)
+            // Checking numpad keys with the KEY_KP_ prefix
             switch (keybind) {
-                case "KEY_0": return "Mouse Left";  // Mouse Left
-                case "KEY_1": return "Mouse Right"; // Mouse Right
-                case "KEY_2": return "Middle";  // Mouse Middle
-                case "KEY_3": return "Side Down";
-                case "KEY_4": return "Side Up";
-                case "LEFT_SUPER": return "Win";
-                case "`": return "Grave";
-                case "LEFT_ALT": return "Left Alt";
-                case "RIGHT_ALT": return "Right Alt";
-                case "LEFT_CONTROL": return "Left Ctrl";
-                case "RIGHT_CONTROL": return "Right Ctrl";
-
-                // Checking numpad keys with the KEY_KP_ prefix
                 case "KEY_KP_0": return "Num 0";
                 case "KEY_KP_1": return "Num 1";
                 case "KEY_KP_2": return "Num 2";
@@ -541,7 +446,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 case "KEY_KP_MULTIPLY": return "Num *";
                 case "KEY_KP_SUBTRACT": return "Num -";
 
-                // Default case - removing the KEY_ prefix for regular keys
+                // Removing the KEY_ prefix for regular keys
                 default:
                     if (keybind.startsWith("KEY_")) {
                         return keybind.substring(4); // Remove "KEY_"
