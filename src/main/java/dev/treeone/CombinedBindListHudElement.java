@@ -27,6 +27,10 @@ public class CombinedBindListHudElement extends ListHudElement {
     private final ColorSetting disabledColor = new ColorSetting("Disabled", "Color for disabled modules", Color.RED);
     List<ModuleHolder> modules = new ArrayList<>();
 
+    // Flags for checking mods availability
+    private static Boolean isMeteorAvailable = null;
+    private static Boolean isRusherAvailable = null;
+
     public CombinedBindListHudElement() {
         super("CombinedBindList");
         // Disable the opacity slider for color settings
@@ -35,26 +39,71 @@ public class CombinedBindListHudElement extends ListHudElement {
         registerSettings(lowercase, enabledColor, disabledColor);
     }
 
+    private static boolean checkMeteorAvailability() {
+        if (isMeteorAvailable == null) {
+            try {
+                Class.forName("meteordevelopment.meteorclient.systems.modules.Modules");
+                // Дополнительная проверка - попытаемся получить экземпляр
+                Modules.get();
+                isMeteorAvailable = true;
+            } catch (LinkageError e) {
+                // Ошибки загрузки классов (включая NoClassDefFoundError)
+                isMeteorAvailable = false;
+            } catch (Exception e) {
+                // Все остальные ошибки (включая ClassNotFoundException)
+                isMeteorAvailable = false;
+            }
+        }
+        return isMeteorAvailable;
+    }
+
+    private static boolean checkRusherAvailability() {
+        if (isRusherAvailable == null) {
+            try {
+                Class.forName("org.rusherhack.client.api.feature.module.ToggleableModule");
+                isRusherAvailable = true;
+            } catch (Exception e) {
+                // Ловим все исключения (ClassNotFoundException, NoClassDefFoundError и др.)
+                isRusherAvailable = false;
+            }
+        }
+        return isRusherAvailable;
+    }
+
     public void load() {
         this.color.setHidden(true); // Hide the default Color parameter
         modules.clear();
 
         try {
-            if (RusherHackAPI.getModuleManager().getFeatures() != null)
+            // Loading RusherHack modules
+            if (checkRusherAvailability() && RusherHackAPI.getModuleManager().getFeatures() != null) {
                 for (IModule feature : RusherHackAPI.getModuleManager().getFeatures()) {
                     if (feature instanceof ToggleableModule module) {
                         modules.add(new ModuleHolder(module));
                     }
                 }
+            }
 
-            if (Modules.get() != null)
-                for (Module module : Modules.get().getList()) {
-                    modules.add(new ModuleHolder(module));
+            // Загружаем модули Meteor Client только если он доступен
+            if (checkMeteorAvailability()) {
+                try {
+                    if (Modules.get() != null) {
+                        for (Module module : Modules.get().getList()) {
+                            modules.add(new ModuleHolder(module));
+                        }
+                    }
+                } catch (Exception e) {
+                    // Meteor Client is unavailable or an error has occurred.
+                    System.err.println("Failed to load Meteor modules: " + e.getMessage());
+                    isMeteorAvailable = false; // Обновляем флаг если произошла ошибка
                 }
+            }
 
             hiddenModules.clear();
             hiddenModules.addAll(CombinedBindListPlugin.loadConfig());
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            System.err.println("Error loading modules: " + e.getMessage());
+        }
     }
 
     public void save() {
