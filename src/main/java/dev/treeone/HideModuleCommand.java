@@ -8,7 +8,7 @@ import org.rusherhack.core.command.annotations.CommandExecutor;
 public class HideModuleCommand extends Command {
 
     public HideModuleCommand() {
-        super("hidemodule", "Manages hidden module list - commands: add, remove, list, clear");
+        super("combindlist", "Manages hidden module list - commands: add, remove, list, clear");
     }
 
     @CommandExecutor(subCommand = "add")
@@ -94,9 +94,9 @@ public class HideModuleCommand extends Command {
     @CommandExecutor
     private String showHelp() {
         return "HideModule commands:\n" +
-                "- hidemodule add <module_name> - Hide a module from the bind list\n" +
-                "- hidemodule remove <module_name> - Show a hidden module again\n" +
-                "- hidemodule list - Show all currently hidden modules\n" +
-                "- hidemodule clear - Clear all hidden modules (make all visible)";
+                "- combindlist add <module_name> - Hide a module from the bind list\n" +
+                "- combindlist remove <module_name> - Show a hidden module again\n" +
+                "- combindlist list - Show all currently hidden modules\n" +
+                "- combindlist clear - Clear all hidden modules (make all visible)";
     }
 }
