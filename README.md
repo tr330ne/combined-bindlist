@@ -3,5 +3,6 @@
 RusherHack Hud Element to display BindList from both meteorclient and rusherhack with customization and ability to hide individual modules.
 
 **```*combindlist``` to manage all modules with assigned keybinds**; alternatively, you can use ```*drawn``` to hide and show specifically RusherHack modules, **which will also hide them from the FeatureList Hud Element!**
-<img width="201" height="250" alt="image" src="https://github.com/user-attachments/assets/9a8f76e2-b310-4780-bbf5-3e6248078c30" />
-<img width="520" height="250" alt="image" src="https://github.com/user-attachments/assets/999f32bc-3f40-445e-829b-b749ea156bf5" />
+
+<img width="520" height="811" alt="image" src="https://github.com/user-attachments/assets/60833fc3-01b1-4f42-bb7d-7e6ecd44f832" />
+<img width="201" height="168" alt="image" src="https://github.com/user-attachments/assets/dd00b6bf-ecf2-4c50-af4a-55bc5f5c1875" />
