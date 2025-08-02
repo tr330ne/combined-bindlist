@@ -1,0 +1,15 @@
+{
+  "Plugin-Class": "dev.treeone.CombinedBindListPlugin",
+  "Name": "CombinedBindList",
+  "Version": "${plugin_version}",
+  "Description": "Plugin to combine bind list from multiple utility mods",
+  "Authors": [
+    "treeone"
+  ],
+  "Minecraft-Versions": [
+    "1.21.1",
+    "1.21.2",
+    "1.21.3",
+    "1.21.4"
+  ]
+}
