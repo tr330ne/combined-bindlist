@@ -1,4 +1,4 @@
-# Combined Bind List [1.21.4]
+# Combined Bind List [1.21.1-1.21.4]
 
 RusherHack Hud Element to display BindList from both meteorclient and rusherhack with customization and ability to hide individual modules.
 
