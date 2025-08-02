@@ -43,14 +43,14 @@ public class CombinedBindListHudElement extends ListHudElement {
         if (isMeteorAvailable == null) {
             try {
                 Class.forName("meteordevelopment.meteorclient.systems.modules.Modules");
-                // Дополнительная проверка - попытаемся получить экземпляр
+                // Additional verification - we will try to obtain a copy
                 Modules.get();
                 isMeteorAvailable = true;
             } catch (LinkageError e) {
-                // Ошибки загрузки классов (включая NoClassDefFoundError)
+                // Class loading errors (including NoClassDefFoundError)
                 isMeteorAvailable = false;
             } catch (Exception e) {
-                // Все остальные ошибки (включая ClassNotFoundException)
+                // All other errors (including ClassNotFoundException)
                 isMeteorAvailable = false;
             }
         }
@@ -63,7 +63,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 Class.forName("org.rusherhack.client.api.feature.module.ToggleableModule");
                 isRusherAvailable = true;
             } catch (Exception e) {
-                // Ловим все исключения (ClassNotFoundException, NoClassDefFoundError и др.)
+                // Catch all exceptions (ClassNotFoundException, NoClassDefFoundError, etc.)
                 isRusherAvailable = false;
             }
         }
@@ -84,7 +84,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 }
             }
 
-            // Загружаем модули Meteor Client только если он доступен
+            // Load Meteor Client modules only if available
             if (checkMeteorAvailability()) {
                 try {
                     if (Modules.get() != null) {
@@ -95,7 +95,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 } catch (Exception e) {
                     // Meteor Client is unavailable or an error has occurred.
                     System.err.println("Failed to load Meteor modules: " + e.getMessage());
-                    isMeteorAvailable = false; // Обновляем флаг если произошла ошибка
+                    isMeteorAvailable = false; // Update the flag if an error occurred
                 }
             }
 
