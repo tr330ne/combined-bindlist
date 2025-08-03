@@ -1,6 +1,6 @@
 # Combined Bind List [1.21.1-1.21.4]
 
-RusherHack Hud Element to display binds from both meteor and rusher with customization and ability to hide individual modules.
+RusherHack Hud Element to display binds from both meteor and rusher with customization and ability to modify individual modules.
 
 - **```*combindlist``` to manage all modules with assigned keybinds.**
 
