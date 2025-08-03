@@ -2,7 +2,7 @@
   "Plugin-Class": "dev.treeone.CombinedBindListPlugin",
   "Name": "CombinedBindList",
   "Version": "${plugin_version}",
-  "Description": "Plugin to combine bind list from multiple utility mods",
+  "Description": "Plugin to display binds from both meteor and rusher with customization and ability to modify individual modules.",
   "Authors": [
     "treeone"
   ],
