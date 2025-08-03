@@ -22,7 +22,9 @@ import java.lang.reflect.Method;
 
 public class CombinedBindListHudElement extends ListHudElement {
     static List<String> hiddenModules = new ArrayList<>();
+    static List<String> hiddenMetadataModules = new ArrayList<>();
     private final BooleanSetting lowercase = new BooleanSetting("Lowercase", false);
+    private final BooleanSetting metadata = new BooleanSetting("Metadata", false);
     private final ColorSetting enabledColor = new ColorSetting("Enabled", "Color for enabled modules", Color.GREEN);
     private final ColorSetting disabledColor = new ColorSetting("Disabled", "Color for disabled modules", Color.RED);
     List<ModuleHolder> modules = new ArrayList<>();
@@ -36,7 +38,7 @@ public class CombinedBindListHudElement extends ListHudElement {
         // Disable the opacity slider for color settings
         enabledColor.setAlphaAllowed(false);
         disabledColor.setAlphaAllowed(false);
-        registerSettings(lowercase, enabledColor, disabledColor);
+        registerSettings(lowercase, metadata, enabledColor, disabledColor);
     }
 
     private static boolean checkMeteorAvailability() {
@@ -101,6 +103,8 @@ public class CombinedBindListHudElement extends ListHudElement {
 
             hiddenModules.clear();
             hiddenModules.addAll(CombinedBindListPlugin.loadConfig());
+            hiddenMetadataModules.clear();
+            hiddenMetadataModules.addAll(CombinedBindListPlugin.loadMetadataConfig());
         } catch (Exception e) {
             System.err.println("Error loading modules: " + e.getMessage());
         }
@@ -108,6 +112,7 @@ public class CombinedBindListHudElement extends ListHudElement {
 
     public void save() {
         CombinedBindListPlugin.saveConfig(hiddenModules);
+        CombinedBindListPlugin.saveMetadataConfig(hiddenMetadataModules);
     }
 
     public Boolean isModuleLoaded(String moduleId) {
@@ -620,9 +625,9 @@ public class CombinedBindListHudElement extends ListHudElement {
 
         public String getId() {
             if (moduleType == ModuleType.METEOR) {
-                return meteorModule.name.toLowerCase().replaceAll("-", "");
+                return meteorModule.name.toLowerCase().replaceAll("[-\\s]", "");
             } else if (moduleType == ModuleType.RUSHER) {
-                return rusherModule.getName().toLowerCase();
+                return rusherModule.getName().toLowerCase().replaceAll("[-\\s]", "");
             }
             throw new RuntimeException("Type not supported");
         }
@@ -654,10 +659,22 @@ public class CombinedBindListHudElement extends ListHudElement {
         public Component getText() {
             String name = lowercase.getValue() ? module.getName().toLowerCase() : module.getName();
             String keybind = module.getKeybind();
+
+            // Build display text
+            StringBuilder displayText = new StringBuilder();
+            displayText.append(name).append(" [").append(keybind).append("]");
+
+            // Add metadata if enabled, available, module is active, and not in hidden metadata list
+            if (metadata.getValue() && module.isEnabled() && !hiddenMetadataModules.contains(module.getId())) {
+                String moduleMetadata = module.getMetadata();
+                if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
+                    displayText.append(" (").append(moduleMetadata).append(")");
+                }
+            }
+
             // Using custom colors from ColorSetting
             int color = module.isEnabled() ? enabledColor.getValueRGB() : disabledColor.getValueRGB();
-            String displayText = name + " [" + keybind + "]";
-            return Component.literal(displayText).withColor(color);
+            return Component.literal(displayText.toString()).withColor(color);
         }
 
         @Override
