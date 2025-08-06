@@ -38,4 +38,4 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 <img width="453" height="778" alt="Screenshot_1" src="https://github.com/user-attachments/assets/b0afc884-8c5e-40f9-83ec-cd313a02a1f1" />
 <img width="371" height="841" alt="Screenshot_2" src="https://github.com/user-attachments/assets/ea6237d5-b83f-4c6e-aff8-f3d8724910db" />
 <img width="262" height="680" alt="Screenshot_3" src="https://github.com/user-attachments/assets/27389083-ebe8-4589-a8e8-531a616efc9a" />
-<img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/06cedcf9-0d58-445c-9a52-bd0662042902" />
+<img width="460" height="243" alt="Screenshot_4" src="https://github.com/user-attachments/assets/06cedcf9-0d58-445c-9a52-bd0662042902" />
