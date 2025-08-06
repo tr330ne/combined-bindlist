@@ -34,6 +34,9 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 - **Discord – ```treeone```**
 - **Telegram – ```tr330ne```**
 
-<img width="447" height="762" alt="Screenshot_1" src="https://github.com/user-attachments/assets/c2233f40-7fcf-4898-a2fc-70e2e1538ef9" />
-<img width="277" height="720" alt="Screenshot_2" src="https://github.com/user-attachments/assets/2064e1b3-adb7-4ec4-ae22-26792214de93" />
-<img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/e6c349b2-0eb9-4e68-bf46-df1d988248d6" />
+<img width="262" height="680" alt="Screenshot_1" src="https://github.com/user-attachments/assets/9920a088-3797-40b7-adc0-7c52fd42dae9" />
+<img width="453" height="778" alt="Screenshot_2" src="https://github.com/user-attachments/assets/6d44c91c-4b89-4416-9056-f4b319102c0e" />
+<img width="462" height="858" alt="Screenshot_3" src="https://github.com/user-attachments/assets/b33aa3bd-0b6f-45b6-9361-5ceeee308f4b" />
+<img width="447" height="762" alt="Screenshot_4" src="https://github.com/user-attachments/assets/e664c223-a886-442b-b117-8f5a4e6417a9" />
+<img width="403" height="862" alt="Screenshot_5" src="https://github.com/user-attachments/assets/02d20fb0-be95-459f-b0a6-99f9f9ae90dc" />
+<img width="460" height="243" alt="Screenshot_6" src="https://github.com/user-attachments/assets/3e5855d1-6c15-429c-b151-f285c7b5d515" />
