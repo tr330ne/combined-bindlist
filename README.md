@@ -1,6 +1,6 @@
 # Combined Bind List [1.21.1-1.21.4]
 
-RusherHack HUD Element to display keybinds or active modules from both Meteor and RusherHack, with advanced customization options, including the ability to modify individual modules, metadata, brackets, colors, and other options.
+RusherHack HUD Element to display keybinds and active modules from both Meteor and RusherHack, with advanced customization options, including the ability to modify individual modules, metadata, brackets, colors, and other options.
 
 - **```*combindlist``` to manage all modules.**
 

@@ -4,7 +4,6 @@ import org.rusherhack.client.api.RusherHackAPI;
 import org.rusherhack.client.api.feature.command.Command;
 import org.rusherhack.core.command.annotations.CommandExecutor;
 
-
 public class ListModulesCommand extends Command {
 
     public ListModulesCommand() {
@@ -14,29 +13,31 @@ public class ListModulesCommand extends Command {
     @CommandExecutor
     private String allModules() {
         try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+            CombinedBindListHudElement hudElement = (CombinedBindListHudElement)
+                    RusherHackAPI.getHudManager().getFeature("CombinedBindList").orElse(null);
 
-                if (hudElement.modules.isEmpty()) {
-                    return "No modules found. Make sure the HUD element is loaded properly.";
-                }
+            if (hudElement == null) {
+                return "CombinedBindList HUD element is not present";
+            }
 
-                StringBuilder modules = new StringBuilder("Available modules (");
-                modules.append(hudElement.modules.size()).append("): ");
+            if (hudElement.modules == null || hudElement.modules.isEmpty()) {
+                return "No modules found. Make sure the HUD element is loaded properly.";
+            }
 
-                for (int i = 0; i < hudElement.modules.size(); i++) {
-                    CombinedBindListHudElement.ModuleHolder module = hudElement.modules.get(i);
+            StringBuilder modules = new StringBuilder("Available modules (")
+                    .append(hudElement.modules.size()).append("): ");
+
+            for (int i = 0; i < hudElement.modules.size(); i++) {
+                CombinedBindListHudElement.ModuleHolder module = hudElement.modules.get(i);
+                if (module != null) {
                     modules.append(module.getId());
-
                     if (i < hudElement.modules.size() - 1) {
                         modules.append(", ");
                     }
                 }
-
-                return modules.toString();
-            } else {
-                return "CombinedBindList HUD element is not present";
             }
+
+            return modules.toString();
         } catch (Exception e) {
             return "Error listing modules: " + e.getMessage();
         }

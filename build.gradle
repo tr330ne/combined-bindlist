@@ -13,10 +13,6 @@ configurations {
 }
 
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
 
     maven {
         name = "rusherhack"
@@ -48,11 +44,10 @@ dependencies {
     //mojmap + parchment mappings
     mappings loom.layered() {
         officialMojangMappings()
-        parchment("org.parchmentmc.data:parchment-1.20.2:2023.10.08@zip")
+        parchment("org.parchmentmc.data:parchment-1.21.4:2024.12.29@zip")
     }
 
-    //rusherhack api
-    rusherhackApi "org.rusherhack:rusherhack-api:1.20.2-SNAPSHOT"
+    rusherhackApi "org.rusherhack:rusherhack-api:1.21.4-SNAPSHOT"
 
     modImplementation "meteordevelopment:meteor-client:0.5.5"
 }
@@ -102,7 +97,6 @@ processResources {
 
 jar {
     manifest {
-        //attributes.clear()
         attributes(
                 "Minecraft-Version": project.minecraft_version
         )

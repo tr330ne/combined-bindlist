@@ -3,6 +3,9 @@ package dev.treeone;
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.systems.modules.Modules;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import org.rusherhack.client.api.RusherHackAPI;
 import org.rusherhack.client.api.events.client.EventUpdate;
 import org.rusherhack.client.api.events.world.EventLoadWorld;
@@ -12,117 +15,201 @@ import org.rusherhack.client.api.feature.module.ToggleableModule;
 import org.rusherhack.client.api.setting.ColorSetting;
 import org.rusherhack.core.event.subscribe.Subscribe;
 import org.rusherhack.core.setting.BooleanSetting;
+import org.rusherhack.core.setting.EnumSetting;
 import org.rusherhack.core.bind.key.IKey;
 
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 public class CombinedBindListHudElement extends ListHudElement {
     static List<String> hiddenModules = new ArrayList<>();
     static List<String> hiddenMetadataModules = new ArrayList<>();
-    private final BooleanSetting lowercase = new BooleanSetting("Lowercase", false);
-    private final BooleanSetting metadata = new BooleanSetting("Metadata", false);
-    private final ColorSetting enabledColor = new ColorSetting("Enabled", "Color for enabled modules", Color.GREEN);
-    private final ColorSetting disabledColor = new ColorSetting("Disabled", "Color for disabled modules", Color.RED);
-    List<ModuleHolder> modules = new ArrayList<>();
 
-    // Flags for checking mods availability
-    private static Boolean isMeteorAvailable = null;
-    private static Boolean isRusherAvailable = null;
+    private final EnumSetting<CaseType> caseSetting = new EnumSetting<>("Case", "", CaseType.Default);
+    private final BooleanSetting showKeys = new BooleanSetting("ShowKeys", "Show keybind text for modules with keybinds", true);
+    private final BooleanSetting rawKeys = new BooleanSetting("RawKeys", "Display raw key names instead of formatted names", false);
+    private final BooleanSetting activeUnbound = new BooleanSetting("ActiveUnbound", "Shows active modules without a keybind", false);
+    private final BooleanSetting boundAsUnbound = new BooleanSetting("BoundAsUnbound", "Display keybound modules as unbound active modules", false);
+    private final BooleanSetting hideBounded = new BooleanSetting("HideBounded", "Hides modules with a keybind", false);
+    private final BooleanSetting boundedMeta = new BooleanSetting("BoundedMeta", "Show metadata for modules with keybinds", false);
+    private final BooleanSetting unboundMeta = new BooleanSetting("UnboundMeta", "Show metadata for active unbound modules", false);
+    private final BooleanSetting stateKeys = new BooleanSetting("StateKeys", "Use enabled/disabled color for keybind text", false);
+    private final EnumSetting<StateMetaMode> stateMeta = new EnumSetting<>("StateMeta", "Use enabled/disabled color for metadata text", StateMetaMode.None);
+    private final BooleanSetting useStateBrackets = new BooleanSetting("StateBrackets", "Use enabled/disabled color for keybind brackets", true);
+    private final BooleanSetting stateMBrackets = new BooleanSetting("StateMBrackets", "Use enabled/disabled color for metadata brackets", false);
+    private final EnumSetting<KeyBracketsStyle> keyBStyle = new EnumSetting<>("KeyBStyle", "Style of keybind brackets", KeyBracketsStyle.Square);
+    private final EnumSetting<MetaBracketsStyle> metaBStyle = new EnumSetting<>("MetaBStyle", "Style of metadata brackets", MetaBracketsStyle.Round);
+    private final ColorSetting enabledColor = new ColorSetting("Enabled", "Color for enabled modules", Color.GREEN)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting disabledColor = new ColorSetting("Disabled", "Color for disabled modules", Color.RED)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting unboundColor = new ColorSetting("Unbound", "Color for active modules without keybinds", Color.BLUE)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting keybindsColor = new ColorSetting("Keybinds", "Color for keybind text", Color.WHITE)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting bracketsColor = new ColorSetting("Brackets", "Color for keybind brackets", Color.WHITE)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting mBoundColor = new ColorSetting("MBound", "Color for metadata text of bound modules", Color.YELLOW)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting mUnboundColor = new ColorSetting("MUnbound", "Color for metadata text of unbound modules", Color.YELLOW)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting mBrackets = new ColorSetting("MBrackets", "Color for metadata brackets", Color.YELLOW)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+
+    List<ModuleHolder> modules = new ArrayList<>();
+    private long lastModuleLoadTime = 0;
+    private static final long MODULE_LOAD_COOLDOWN = 1000;
+
+    public enum CaseType { Default, Lowercase, Uppercase }
+    public enum KeyBracketsStyle { Square, Round, Curly, Angle, Pipe, None }
+    public enum MetaBracketsStyle { Round, Square, Curly, Angle, Pipe, None }
+    public enum StateMetaMode { All, Bound, Unbound, None }
 
     public CombinedBindListHudElement() {
         super("CombinedBindList");
-        // Disable the opacity slider for color settings
         enabledColor.setAlphaAllowed(false);
         disabledColor.setAlphaAllowed(false);
-        registerSettings(lowercase, metadata, enabledColor, disabledColor);
+        unboundColor.setAlphaAllowed(false);
+        keybindsColor.setAlphaAllowed(false);
+        bracketsColor.setAlphaAllowed(false);
+        mBrackets.setAlphaAllowed(false);
+        mBoundColor.setAlphaAllowed(false);
+        mUnboundColor.setAlphaAllowed(false);
+        registerSettings(caseSetting, showKeys, rawKeys, activeUnbound, boundAsUnbound, hideBounded, boundedMeta, unboundMeta, stateKeys, stateMeta, useStateBrackets, stateMBrackets, keyBStyle, metaBStyle, enabledColor, disabledColor, unboundColor, keybindsColor, bracketsColor, mBoundColor, mUnboundColor, mBrackets);
+    }
+
+    private String stripMinecraftColors(String text) {
+        return text == null ? null : text.replaceAll("[§&][0-9a-fk-orA-FK-OR]", "");
     }
 
     private static boolean checkMeteorAvailability() {
-        if (isMeteorAvailable == null) {
-            try {
-                Class.forName("meteordevelopment.meteorclient.systems.modules.Modules");
-                // Additional verification - we will try to obtain a copy
-                Modules.get();
-                isMeteorAvailable = true;
-            } catch (LinkageError e) {
-                // Class loading errors (including NoClassDefFoundError)
-                isMeteorAvailable = false;
-            } catch (Exception e) {
-                // All other errors (including ClassNotFoundException)
-                isMeteorAvailable = false;
-            }
+        try {
+            Class.forName("meteordevelopment.meteorclient.systems.modules.Modules");
+            return Modules.get() != null;
+        } catch (Exception | LinkageError e) {
+            return false;
         }
-        return isMeteorAvailable;
     }
 
     private static boolean checkRusherAvailability() {
-        if (isRusherAvailable == null) {
-            try {
-                Class.forName("org.rusherhack.client.api.feature.module.ToggleableModule");
-                isRusherAvailable = true;
-            } catch (Exception e) {
-                // Catch all exceptions (ClassNotFoundException, NoClassDefFoundError, etc.)
-                isRusherAvailable = false;
-            }
+        try {
+            Class.forName("org.rusherhack.client.api.feature.module.ToggleableModule");
+            return RusherHackAPI.getModuleManager() != null && RusherHackAPI.getModuleManager().getFeatures() != null;
+        } catch (Exception e) {
+            return false;
         }
-        return isRusherAvailable;
     }
 
     public void load() {
-        this.color.setHidden(true); // Hide the default Color parameter
+        this.color.setHidden(true);
+        long currentTime = System.currentTimeMillis();
+        if (currentTime - lastModuleLoadTime < MODULE_LOAD_COOLDOWN) return;
+
+        lastModuleLoadTime = currentTime;
         modules.clear();
 
         try {
-            // Loading RusherHack modules
-            if (checkRusherAvailability() && RusherHackAPI.getModuleManager().getFeatures() != null) {
-                for (IModule feature : RusherHackAPI.getModuleManager().getFeatures()) {
-                    if (feature instanceof ToggleableModule module) {
+            if (checkRusherAvailability()) {
+                var features = RusherHackAPI.getModuleManager().getFeatures();
+                if (features != null) {
+                    for (IModule feature : features) {
+                        if (feature instanceof ToggleableModule module) {
+                            modules.add(new ModuleHolder(module));
+                        }
+                    }
+                }
+            }
+            if (checkMeteorAvailability()) {
+                var modulesList = Modules.get().getList();
+                if (modulesList != null) {
+                    for (Module module : modulesList) {
                         modules.add(new ModuleHolder(module));
                     }
                 }
             }
-
-            // Load Meteor Client modules only if available
-            if (checkMeteorAvailability()) {
-                try {
-                    if (Modules.get() != null) {
-                        for (Module module : Modules.get().getList()) {
-                            modules.add(new ModuleHolder(module));
-                        }
-                    }
-                } catch (Exception e) {
-                    // Meteor Client is unavailable or an error has occurred.
-                    System.err.println("Failed to load Meteor modules: " + e.getMessage());
-                    isMeteorAvailable = false; // Update the flag if an error occurred
-                }
-            }
-
             hiddenModules.clear();
             hiddenModules.addAll(CombinedBindListPlugin.loadConfig());
             hiddenMetadataModules.clear();
             hiddenMetadataModules.addAll(CombinedBindListPlugin.loadMetadataConfig());
         } catch (Exception e) {
-            System.err.println("Error loading modules: " + e.getMessage());
+        }
+    }
+
+    private void rebuildModuleList() {
+        try {
+            List<ListItem> itemsToRemove = new ArrayList<>();
+
+            for (ListItem item : getMembers()) {
+                if (item instanceof BindListItem bindItem) {
+                    if (bindItem.shouldRemove()) {
+                        itemsToRemove.add(item);
+                    }
+                } else if (item instanceof ExtraListItem extraItem) {
+                    if (extraItem.shouldRemove()) {
+                        itemsToRemove.add(item);
+                    }
+                }
+            }
+
+            for (ListItem item : itemsToRemove) {
+                getMembers().remove(item);
+            }
+
+            if (!hideBounded.getValue()) {
+                for (ModuleHolder module : modules) {
+                    if (module != null && module.hasKeybind() && module.isVisible()) {
+                        boolean alreadyExists = getMembers().stream()
+                                .anyMatch(item -> item instanceof BindListItem bindItem &&
+                                        bindItem.module.equals(module));
+                        if (!alreadyExists) {
+                            add(new BindListItem(module, this));
+                        }
+                    }
+                }
+            }
+
+            if (activeUnbound.getValue()) {
+                for (ModuleHolder module : modules) {
+                    if (module != null && !module.hasKeybind() && module.isEnabled() && module.isVisible()) {
+                        boolean alreadyExists = getMembers().stream()
+                                .anyMatch(item -> item instanceof ExtraListItem extraItem &&
+                                        extraItem.module.equals(module));
+                        if (!alreadyExists) {
+                            add(new ExtraListItem(module, this));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
         }
     }
 
     public void save() {
-        CombinedBindListPlugin.saveConfig(hiddenModules);
-        CombinedBindListPlugin.saveMetadataConfig(hiddenMetadataModules);
+        try {
+            CombinedBindListPlugin.saveConfig(hiddenModules);
+            CombinedBindListPlugin.saveMetadataConfig(hiddenMetadataModules);
+        } catch (Exception e) {
+        }
     }
 
     public Boolean isModuleLoaded(String moduleId) {
-        return modules.stream().map(ModuleHolder::getId).toList().contains(moduleId.toLowerCase());
+        try {
+            return modules.stream().map(ModuleHolder::getId).anyMatch(id -> id.equals(moduleId.toLowerCase()));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Override
     public void onEnable() {
         super.onEnable();
-        load();
+        try {
+            load();
+            rebuildModuleList();
+        } catch (Exception e) {
+        }
     }
 
     @Override
@@ -133,28 +220,79 @@ public class CombinedBindListHudElement extends ListHudElement {
 
     @Subscribe
     public void onLoadWorld(EventLoadWorld event) {
-        load();
+        try {
+            getMembers().clear();
+            load();
+            rebuildModuleList();
+        } catch (Exception e) {
+        }
     }
 
     @Subscribe
     public void onTick(EventUpdate event) {
-        // Searching for modules whose binds are missing from the list
-        for (ModuleHolder module : modules) {
-            if (module.hasKeybind() && module.isVisible()) {
-                boolean foundModule = false;
-                for (ListItem member : getMembers()) {
-                    if (member instanceof BindListItem bindListItem) {
-                        if (bindListItem.module.equals(module)) {
-                            foundModule = true;
-                            break;
+        try {
+            int currentModuleCount = 0;
+
+            if (checkRusherAvailability()) {
+                var features = RusherHackAPI.getModuleManager().getFeatures();
+                if (features != null) {
+                    for (IModule feature : features) {
+                        if (feature instanceof ToggleableModule) currentModuleCount++;
+                    }
+                }
+            }
+
+            if (checkMeteorAvailability()) {
+                var modulesList = Modules.get().getList();
+                if (modulesList != null) currentModuleCount += modulesList.size();
+            }
+
+            if (Math.abs(currentModuleCount - modules.size()) > 0) {
+                getMembers().clear();
+                lastModuleLoadTime = 0;
+                load();
+                return;
+            }
+
+            if (!hideBounded.getValue()) {
+                for (ModuleHolder module : modules) {
+                    if (module.hasKeybind() && module.isVisible()) {
+                        boolean foundModule = false;
+                        for (ListItem member : getMembers()) {
+                            if (member instanceof BindListItem bindListItem) {
+                                if (bindListItem.module.equals(module)) {
+                                    foundModule = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!foundModule) {
+                            add(new BindListItem(module, this));
                         }
                     }
                 }
-                // If the module with the bind is not found in the list, add it
-                if (!foundModule) {
-                    add(new BindListItem(module, this));
+            }
+
+            if (activeUnbound.getValue()) {
+                for (ModuleHolder module : modules) {
+                    if (!module.hasKeybind() && module.isEnabled() && module.isVisible()) {
+                        boolean foundModule = false;
+                        for (ListItem member : getMembers()) {
+                            if (member instanceof ExtraListItem extraListItem) {
+                                if (extraListItem.module.equals(module)) {
+                                    foundModule = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!foundModule) {
+                            add(new ExtraListItem(module, this));
+                        }
+                    }
                 }
             }
+
+        } catch (Exception e) {
         }
     }
 
@@ -162,6 +300,77 @@ public class CombinedBindListHudElement extends ListHudElement {
         public Module meteorModule;
         public ToggleableModule rusherModule;
         public ModuleType moduleType;
+
+        private static final Map<String, String> RUSHER_KEY_MAP = new HashMap<>() {{
+            put("MOUSE_1", "Mouse Left"); put("MOUSE_2", "Mouse Right"); put("MOUSE_3", "Middle");
+            put("MOUSE_4", "Side Down"); put("MOUSE_5", "Side Up");
+            put("KEY_LEFT_SHIFT", "Left Shift"); put("KEY_RIGHT_SHIFT", "Right Shift");
+            put("KEY_LEFT_CONTROL", "Left Ctrl"); put("KEY_RIGHT_CONTROL", "Right Ctrl");
+            put("KEY_LEFT_ALT", "Left Alt"); put("KEY_RIGHT_ALT", "Right Alt");
+            put("KEY_CAPS_LOCK", "Caps Lock"); put("KEY_NUM_LOCK", "Num Lock");
+            put("KEY_SCROLL_LOCK", "Scroll Lock"); put("KEY_PRINT_SCREEN", "Print Screen");
+            put("KEY_PAGE_UP", "Page Up"); put("KEY_PAGE_DOWN", "Page Down");
+            put("KEY_BACKSPACE", "Backspace"); put("KEY_ENTER", "Enter"); put("KEY_SPACE", "Space");
+            put("KEY_TAB", "Tab"); put("KEY_DELETE", "Delete"); put("KEY_INSERT", "Insert");
+            put("KEY_HOME", "Home"); put("KEY_END", "End"); put("KEY_UP", "Up"); put("KEY_DOWN", "Down");
+            put("KEY_LEFT", "Left"); put("KEY_RIGHT", "Right"); put("KEY_PAUSE", "Pause");
+            put("KEY_MENU", "Menu"); put("KEY_ESCAPE", "Escape"); put("KEY_GRAVE_ACCENT", "Grave");
+            put("KEY_APOSTROPHE", "'"); put("KEY_COMMA", ","); put("KEY_MINUS", "-");
+            put("KEY_PERIOD", "."); put("KEY_SLASH", "/"); put("KEY_SEMICOLON", ";");
+            put("KEY_EQUAL", "="); put("KEY_LEFT_BRACKET", "["); put("KEY_BACKSLASH", "\\");
+            put("KEY_RIGHT_BRACKET", "]");
+        }};
+
+        private static final Map<Integer, String> GLFW_KEY_MAP = new HashMap<>() {{
+            put(-100, "Mouse Left"); put(-99, "Mouse Right"); put(-98, "Middle");
+            put(-97, "Side Down"); put(-96, "Side Up");
+            put(0, "Mouse Left"); put(1, "Mouse Right"); put(2, "Middle");
+            put(3, "Side Down"); put(4, "Side Up");
+
+            put(32, "Space"); put(257, "Enter"); put(258, "Tab"); put(259, "Backspace");
+            put(260, "Insert"); put(261, "Delete"); put(262, "Right"); put(263, "Left");
+            put(264, "Down"); put(265, "Up"); put(266, "Page Up"); put(267, "Page Down");
+            put(268, "Home"); put(269, "End"); put(280, "Caps Lock"); put(281, "Scroll Lock");
+            put(282, "Num Lock"); put(283, "Print Screen"); put(284, "Pause");
+            put(340, "Left Shift"); put(341, "Left Ctrl"); put(342, "Left Alt");
+            put(343, "Win"); put(344, "Right Shift"); put(345, "Right Ctrl");
+            put(346, "Right Alt"); put(347, "Right Super"); put(348, "Menu");
+            put(39, "'"); put(44, ","); put(45, "-"); put(46, "."); put(47, "/");
+            put(59, ";"); put(61, "="); put(91, "["); put(92, "\\"); put(93, "]"); put(96, "Grave");
+        }};
+
+        static {
+            for (int i = 0; i <= 9; i++) {
+                RUSHER_KEY_MAP.put("KEY_KP_" + i, "Num " + i);
+                GLFW_KEY_MAP.put(320 + i, "Num " + i);
+                GLFW_KEY_MAP.put(48 + i, String.valueOf(i));
+            }
+            for (int i = 0; i < 26; i++) {
+                char letter = (char) ('A' + i);
+                GLFW_KEY_MAP.put(65 + i, String.valueOf(letter));
+            }
+            for (int i = 1; i <= 12; i++) {
+                RUSHER_KEY_MAP.put("KEY_F" + i, "F" + i);
+                GLFW_KEY_MAP.put(289 + i, "F" + i);
+            }
+            RUSHER_KEY_MAP.put("KEY_KP_ADD", "Num +");
+            RUSHER_KEY_MAP.put("KEY_KP_DECIMAL", "Num .");
+            RUSHER_KEY_MAP.put("KEY_KP_DIVIDE", "Num /");
+            RUSHER_KEY_MAP.put("KEY_KP_ENTER", "Num Enter");
+            RUSHER_KEY_MAP.put("KEY_KP_EQUAL", "Num =");
+            RUSHER_KEY_MAP.put("KEY_KP_MULTIPLY", "Num *");
+            RUSHER_KEY_MAP.put("KEY_KP_SUBTRACT", "Num -");
+
+            GLFW_KEY_MAP.put(330, "Num .");
+            GLFW_KEY_MAP.put(331, "Num /");
+            GLFW_KEY_MAP.put(332, "Num *");
+            GLFW_KEY_MAP.put(333, "Num -");
+            GLFW_KEY_MAP.put(334, "Num +");
+            GLFW_KEY_MAP.put(335, "Num Enter");
+            GLFW_KEY_MAP.put(336, "Num =");
+        }
+
+        public enum ModuleType { RUSHER, METEOR }
 
         public ModuleHolder(Module meteorModule) {
             this.meteorModule = meteorModule;
@@ -174,28 +383,30 @@ public class CombinedBindListHudElement extends ListHudElement {
         }
 
         public boolean isEnabled() {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule.isActive();
-            } else if (moduleType == ModuleType.RUSHER) {
-                return rusherModule.isToggled();
+            try {
+                return moduleType == ModuleType.METEOR ?
+                        (meteorModule != null && meteorModule.isActive()) :
+                        (rusherModule != null && rusherModule.isToggled());
+            } catch (Exception e) {
+                return false;
             }
-            throw new RuntimeException("Type not supported");
         }
 
         public String getName() {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule.title;
-            } else if (moduleType == ModuleType.RUSHER) {
-                return rusherModule.getName();
+            try {
+                return moduleType == ModuleType.METEOR ?
+                        (meteorModule != null ? meteorModule.title : "Unknown") :
+                        (rusherModule != null ? rusherModule.getName() : "Unknown");
+            } catch (Exception e) {
+                return "Unknown";
             }
-            throw new RuntimeException("Type not supported");
         }
 
         public boolean hasKeybind() {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule.keybind.isSet();
-            } else if (moduleType == ModuleType.RUSHER) {
-                try {
+            try {
+                if (moduleType == ModuleType.METEOR && meteorModule != null) {
+                    return meteorModule.keybind != null && meteorModule.keybind.isSet();
+                } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
                     final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
                     if (key != null) {
                         String keyLabel = key.getLabel(false);
@@ -204,234 +415,85 @@ public class CombinedBindListHudElement extends ListHudElement {
                                 !keyLabel.equalsIgnoreCase("unbound") &&
                                 !keyLabel.equalsIgnoreCase("unknown");
                     }
-                    return false;
-                } catch (Exception e) {
-                    return false;
                 }
+                return false;
+            } catch (Exception e) {
+                return false;
             }
-            throw new RuntimeException("Type not supported");
         }
 
         public String getKeybind() {
-            if (moduleType == ModuleType.METEOR) {
-                try {
-                    var keybind = meteorModule.keybind;
-
-                    // Try to find public methods to get the GLFW code
-                    Method[] methods = keybind.getClass().getMethods();
-
-                    for (Method method : methods) {
-                        if ((method.getName().equals("getKey") ||
-                                method.getName().equals("getValue") ||
-                                method.getName().equals("getGlfwKey")) &&
-                                method.getParameterCount() == 0 &&
-                                method.getReturnType() == int.class) {
-
-                            int glfwKey = (int) method.invoke(keybind);
-                            String formatted = formatGLFWKey(glfwKey);
-
-                            // Additional check for cases that might not be caught in formatGLFWKey
-                            switch (formatted) {
-                                case "KEY_0": return "Mouse Left";
-                                case "KEY_1": return "Mouse Right";
-                                case "KEY_2": return "Middle";
-                                case "KEY_3": return "Side Down";
-                                case "KEY_4": return "Side Up";
-                                case "LEFT_CONTROL": return "Left Ctrl";
-                                case "RIGHT_CONTROL": return "Right Ctrl";
-                                case "LEFT_ALT": return "Left Alt";
-                                case "RIGHT_ALT": return "Right Alt";
-                                case "LEFT_SUPER": return "Win";
-                                default: return formatted;
-                            }
-                        }
-                    }
-
-                    // If no suitable method is found, use field reflection
-                    Field keyField = keybind.getClass().getDeclaredField("key");
-                    keyField.setAccessible(true);
-                    int glfwKey = keyField.getInt(keybind);
-                    String formatted = formatGLFWKey(glfwKey);
-
-                    // Additional check for cases that might not be caught in formatGLFWKey
-                    switch (formatted) {
-                        case "KEY_0": return "Mouse Left";
-                        case "KEY_1": return "Mouse Right";
-                        case "KEY_2": return "Middle";
-                        case "KEY_3": return "Side Down";
-                        case "KEY_4": return "Side Up";
-                        case "LEFT_CONTROL": return "Left Ctrl";
-                        case "RIGHT_CONTROL": return "Right Ctrl";
-                        case "LEFT_ALT": return "Left Alt";
-                        case "RIGHT_ALT": return "Right Alt";
-                        case "LEFT_SUPER": return "Win";
-                        default: return formatted;
-                    }
-
-                } catch (Exception e) {
-                    // If nothing works, use the default method
-                    String rawKeybind = meteorModule.keybind.toString();
-                    String formatted = formatKeybind(rawKeybind);
-
-                    // Additional checks for cases that might not be caught
-                    switch (formatted) {
-                        case "KEY_0": return "Mouse Left";
-                        case "KEY_1": return "Mouse Right";
-                        case "KEY_2": return "Middle";
-                        case "KEY_3": return "Side Down";
-                        case "KEY_4": return "Side Up";
-                        case "LEFT_CONTROL": return "Left Ctrl";
-                        case "RIGHT_CONTROL": return "Right Ctrl";
-                        case "LEFT_ALT": return "Left Alt";
-                        case "RIGHT_ALT": return "Right Alt";
-                        case "LEFT_SUPER": return "Win";
-                        case "0": return "Mouse Left";
-                        case "1": return "Mouse Right";
-                        case "2": return "Middle";
-                        case "3": return "Side Down";
-                        case "4": return "Side Up";
-                        default: return formatted;
-                    }
+            try {
+                if (moduleType == ModuleType.METEOR && meteorModule != null && meteorModule.keybind != null) {
+                    return getMeteorKeybind();
+                } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
+                    return getRusherKeybind();
                 }
-            } else if (moduleType == ModuleType.RUSHER) {
-                try {
-                    final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
-                    if (key != null) {
-                        String rawLabel = key.getLabel(true); // Get the raw name
-                        String formatted = formatRusherKeybind(rawLabel);
-
-                        // Additional check for Left Super specifically
-                        if (formatted.equals("Left Super")) {
-                            return "Win";
-                        }
-
-                        return formatted;
-                    }
-                } catch (Exception e) {
-                    // Ignore errors
-                }
-                return "unbound";
+            } catch (Exception e) {
             }
-            throw new RuntimeException("Type not supported");
+            return "unbound";
         }
 
-        // New method for formatting RusherHack binds
+        private String getMeteorKeybind() {
+            try {
+                var keybind = meteorModule.keybind;
+                Method[] methods = keybind.getClass().getMethods();
+                for (Method method : methods) {
+                    if ((method.getName().equals("getKey") || method.getName().equals("getValue") ||
+                            method.getName().equals("getGlfwKey")) && method.getParameterCount() == 0 &&
+                            method.getReturnType() == int.class) {
+                        int glfwKey = (int) method.invoke(keybind);
+                        return formatGLFWKey(glfwKey);
+                    }
+                }
+
+                Field keyField = keybind.getClass().getDeclaredField("key");
+                keyField.setAccessible(true);
+                int glfwKey = keyField.getInt(keybind);
+                return formatGLFWKey(glfwKey);
+            } catch (Exception e) {
+                String rawKeybind = meteorModule.keybind.toString();
+                return formatKeybind(rawKeybind);
+            }
+        }
+
+        private String getRusherKeybind() {
+            try {
+                final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
+                if (key != null) {
+                    String rawLabel = key.getLabel(true);
+                    return formatRusherKeybind(rawLabel);
+                }
+            } catch (Exception e) {
+            }
+            return "unbound";
+        }
+
         private String formatRusherKeybind(String keybind) {
             if (keybind == null || keybind.isEmpty()) return "unbound";
 
-            // Trim whitespace and check for Left Super variations
             String trimmed = keybind.trim();
-            if (trimmed.equalsIgnoreCase("Left Super") ||
-                    trimmed.equalsIgnoreCase("LEFTSUPER") ||
+            if (trimmed.equalsIgnoreCase("Left Super") || trimmed.equalsIgnoreCase("LEFTSUPER") ||
                     trimmed.contains("Left Super")) {
                 return "Win";
             }
 
-            // Check mouse buttons first
-            switch (trimmed) {
-                case "MOUSE_1": return "Mouse Left";
-                case "MOUSE_2": return "Mouse Right";
-                case "MOUSE_3": return "Middle";
-                case "MOUSE_4": return "Side Down";
-                case "MOUSE_5": return "Side Up";
+            String mapped = RUSHER_KEY_MAP.get(trimmed);
+            if (mapped != null) return mapped;
+
+            if (trimmed.startsWith("KEY_")) {
+                String withoutPrefix = trimmed.substring(4);
+                if (withoutPrefix.matches("^[0-9A-Z]$")) return withoutPrefix;
+                return formatKeyName(withoutPrefix);
             }
 
-            // Check numpad keys with the KEY_KP_ prefix
-            switch (trimmed) {
-                case "KEY_KP_0": return "Num 0";
-                case "KEY_KP_1": return "Num 1";
-                case "KEY_KP_2": return "Num 2";
-                case "KEY_KP_3": return "Num 3";
-                case "KEY_KP_4": return "Num 4";
-                case "KEY_KP_5": return "Num 5";
-                case "KEY_KP_6": return "Num 6";
-                case "KEY_KP_7": return "Num 7";
-                case "KEY_KP_8": return "Num 8";
-                case "KEY_KP_9": return "Num 9";
-                case "KEY_KP_ADD": return "Num +";
-                case "KEY_KP_DECIMAL": return "Num .";
-                case "KEY_KP_DIVIDE": return "Num /";
-                case "KEY_KP_ENTER": return "Num Enter";
-                case "KEY_KP_EQUAL": return "Num =";
-                case "KEY_KP_MULTIPLY": return "Num *";
-                case "KEY_KP_SUBTRACT": return "Num -";
-
-                // Special keys
-                case "KEY_LEFT_SHIFT": return "Left Shift";
-                case "KEY_RIGHT_SHIFT": return "Right Shift";
-                case "KEY_LEFT_CONTROL": return "Left Ctrl";
-                case "KEY_RIGHT_CONTROL": return "Right Ctrl";
-                case "KEY_LEFT_ALT": return "Left Alt";
-                case "KEY_RIGHT_ALT": return "Right Alt";
-                case "KEY_RIGHT_SUPER": return "Right Super";
-                case "KEY_CAPS_LOCK": return "Caps Lock";
-                case "KEY_NUM_LOCK": return "Num Lock";
-                case "KEY_SCROLL_LOCK": return "Scroll Lock";
-                case "KEY_PRINT_SCREEN": return "Print Screen";
-                case "KEY_PAGE_UP": return "Page Up";
-                case "KEY_PAGE_DOWN": return "Page Down";
-                case "KEY_BACKSPACE": return "Backspace";
-                case "KEY_ENTER": return "Enter";
-                case "KEY_SPACE": return "Space";
-                case "KEY_TAB": return "Tab";
-                case "KEY_DELETE": return "Delete";
-                case "KEY_INSERT": return "Insert";
-                case "KEY_HOME": return "Home";
-                case "KEY_END": return "End";
-                case "KEY_UP": return "Up";
-                case "KEY_DOWN": return "Down";
-                case "KEY_LEFT": return "Left";
-                case "KEY_RIGHT": return "Right";
-                case "KEY_PAUSE": return "Pause";
-                case "KEY_MENU": return "Menu";
-                case "KEY_ESCAPE": return "Escape";
-
-                // Function keys
-                case "KEY_F1": return "F1"; case "KEY_F2": return "F2";
-                case "KEY_F3": return "F3"; case "KEY_F4": return "F4";
-                case "KEY_F5": return "F5"; case "KEY_F6": return "F6";
-                case "KEY_F7": return "F7"; case "KEY_F8": return "F8";
-                case "KEY_F9": return "F9"; case "KEY_F10": return "F10";
-                case "KEY_F11": return "F11"; case "KEY_F12": return "F12";
-
-                // Symbols
-                case "KEY_APOSTROPHE": return "'";
-                case "KEY_COMMA": return ",";
-                case "KEY_MINUS": return "-";
-                case "KEY_PERIOD": return ".";
-                case "KEY_SLASH": return "/";
-                case "KEY_SEMICOLON": return ";";
-                case "KEY_EQUAL": return "=";
-                case "KEY_LEFT_BRACKET": return "[";
-                case "KEY_BACKSLASH": return "\\";
-                case "KEY_RIGHT_BRACKET": return "]";
-                case "KEY_GRAVE_ACCENT": return "Grave";
-
-                // Remove the KEY_ prefix for the remaining keys
-                default:
-                    if (trimmed.startsWith("KEY_")) {
-                        String withoutPrefix = trimmed.substring(4); // Remove "KEY_"
-
-                        // If it's a digit or letter, return as is
-                        if (withoutPrefix.matches("^[0-9A-Z]$")) {
-                            return withoutPrefix;
-                        }
-
-                        // For the rest, apply pretty formatting
-                        return formatKeyName(withoutPrefix);
-                    }
-                    return trimmed;
-            }
+            return trimmed;
         }
 
-        // Helper method for nicely formatting key names
         private String formatKeyName(String keyName) {
             if (keyName == null || keyName.isEmpty()) return keyName;
-
-            // Replace underscores with spaces and capitalize the first letter
             String[] parts = keyName.toLowerCase().split("_");
             StringBuilder result = new StringBuilder();
-
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) result.append(" ");
                 if (!parts[i].isEmpty()) {
@@ -441,209 +503,151 @@ public class CombinedBindListHudElement extends ListHudElement {
                     }
                 }
             }
-
             return result.toString();
         }
 
-        // Method for formatting GLFW keys
         private String formatGLFWKey(int glfwKey) {
-            // GLFW constants for mouse buttons
-            switch (glfwKey) {
-                case -100: return "Mouse Left";  // Mouse Left button
-                case -99: return "Mouse Right";  // Mouse Right button
-                case -98: return "Middle";  // Mouse Middle button
-                case -97: return "Side Down"; // Mouse 3 button
-                case -96: return "Side Up"; // Mouse 4 button
+            String mapped = GLFW_KEY_MAP.get(glfwKey);
+            if (mapped != null) return mapped;
+
+            try {
+                String keyName = org.lwjgl.glfw.GLFW.glfwGetKeyName(glfwKey, 0);
+                if (keyName != null && !keyName.isEmpty()) {
+                    return keyName.toUpperCase();
+                }
+            } catch (Exception e) {
             }
-
-            // GLFW constants for numpad
-            switch (glfwKey) {
-                case 320: return "Num 0";  // GLFW_KEY_KP_0
-                case 321: return "Num 1";  // GLFW_KEY_KP_1
-                case 322: return "Num 2";  // GLFW_KEY_KP_2
-                case 323: return "Num 3";  // GLFW_KEY_KP_3
-                case 324: return "Num 4";  // GLFW_KEY_KP_4
-                case 325: return "Num 5";  // GLFW_KEY_KP_5
-                case 326: return "Num 6";  // GLFW_KEY_KP_6
-                case 327: return "Num 7";  // GLFW_KEY_KP_7
-                case 328: return "Num 8";  // GLFW_KEY_KP_8
-                case 329: return "Num 9";  // GLFW_KEY_KP_9
-                case 330: return "Num .";  // GLFW_KEY_KP_DECIMAL
-                case 331: return "Num /";  // GLFW_KEY_KP_DIVIDE
-                case 332: return "Num *";  // GLFW_KEY_KP_MULTIPLY
-                case 333: return "Num -";  // GLFW_KEY_KP_SUBTRACT
-                case 334: return "Num +";  // GLFW_KEY_KP_ADD
-                case 335: return "Num Enter"; // GLFW_KEY_KP_ENTER
-                case 336: return "Num =";  // GLFW_KEY_KP_EQUAL
-
-                // Regular digits
-                case 49: return "1"; // GLFW_KEY_1
-                case 50: return "2"; // GLFW_KEY_2
-                case 51: return "3"; // GLFW_KEY_3
-                case 52: return "4"; // GLFW_KEY_4
-                case 53: return "5"; // GLFW_KEY_5
-                case 54: return "6"; // GLFW_KEY_6
-                case 55: return "7"; // GLFW_KEY_7
-                case 56: return "8"; // GLFW_KEY_8
-                case 57: return "9"; // GLFW_KEY_9
-                case 48: return "0"; // GLFW_KEY_0
-
-                // Letters A-Z
-                case 65: return "A"; case 66: return "B"; case 67: return "C"; case 68: return "D";
-                case 69: return "E"; case 70: return "F"; case 71: return "G"; case 72: return "H";
-                case 73: return "I"; case 74: return "J"; case 75: return "K"; case 76: return "L";
-                case 77: return "M"; case 78: return "N"; case 79: return "O"; case 80: return "P";
-                case 81: return "Q"; case 82: return "R"; case 83: return "S"; case 84: return "T";
-                case 85: return "U"; case 86: return "V"; case 87: return "W"; case 88: return "X";
-                case 89: return "Y"; case 90: return "Z";
-
-                // Function keys
-                case 290: return "F1"; case 291: return "F2"; case 292: return "F3"; case 293: return "F4";
-                case 294: return "F5"; case 295: return "F6"; case 296: return "F7"; case 297: return "F8";
-                case 298: return "F9"; case 299: return "F10"; case 300: return "F11"; case 301: return "F12";
-
-                // Special keys
-                case 32: return "SPACE";
-                case 257: return "ENTER";
-                case 258: return "TAB";
-                case 259: return "BACKSPACE";
-                case 260: return "INSERT";
-                case 261: return "DELETE";
-                case 262: return "RIGHT";
-                case 263: return "LEFT";
-                case 264: return "DOWN";
-                case 265: return "UP";
-                case 266: return "PAGE_UP";
-                case 267: return "PAGE_DOWN";
-                case 268: return "HOME";
-                case 269: return "END";
-                case 280: return "CAPS_LOCK";
-                case 281: return "SCROLL_LOCK";
-                case 282: return "NUM_LOCK";
-                case 283: return "PRINT_SCREEN";
-                case 284: return "PAUSE";
-                case 340: return "LEFT_SHIFT";
-                case 341: return "LEFT_CONTROL";
-                case 342: return "Left Alt";
-                case 343: return "Win";  // LEFT_SUPER -> Win
-                case 344: return "RIGHT_SHIFT";
-                case 345: return "RIGHT_CONTROL";
-                case 346: return "Right Alt";
-                case 347: return "RIGHT_SUPER";
-                case 348: return "MENU";
-
-                // Symbols
-                case 39: return "'";
-                case 44: return ",";
-                case 45: return "-";
-                case 46: return ".";
-                case 47: return "/";
-                case 59: return ";";
-                case 61: return "=";
-                case 91: return "[";
-                case 92: return "\\";
-                case 93: return "]";
-                case 96: return "Grave";  // Grave Accent -> Grave
-
-                // For unknown keys, try using GLFW
-                default:
-                    try {
-                        String keyName = org.lwjgl.glfw.GLFW.glfwGetKeyName(glfwKey, 0);
-                        if (keyName != null && !keyName.isEmpty()) {
-                            return keyName.toUpperCase();
-                        }
-                    } catch (Exception e) {
-                        // Ignore
-                    }
-                    return "KEY_" + glfwKey;
-            }
+            return "KEY_" + glfwKey;
         }
 
         private String formatKeybind(String keybind) {
             if (keybind == null) return "unbound";
 
-            // Handle special cases first (including mouse buttons and special keys)
-            switch (keybind) {
-                case "KEY_0": return "Mouse Left";  // Mouse Left
-                case "KEY_1": return "Mouse Right"; // Mouse Right
-                case "KEY_2": return "Middle";  // Mouse Middle
-                case "KEY_3": return "Side Down";
-                case "KEY_4": return "Side Up";
-                case "LEFT_SUPER": return "Win";
-                case "`": return "Grave";
-                case "LEFT_ALT": return "Left Alt";
-                case "RIGHT_ALT": return "Right Alt";
-                case "LEFT_CONTROL": return "Left Ctrl";
-                case "RIGHT_CONTROL": return "Right Ctrl";
+            Map<String, String> specialCases = new HashMap<>() {{
+                put("KEY_0", "Mouse Left");
+                put("KEY_1", "Mouse Right");
+                put("KEY_2", "Middle");
+                put("KEY_3", "Side Down");
+                put("KEY_4", "Side Up");
+                put("LEFT_SUPER", "Win");
+                put("`", "Grave");
+                put("LEFT_ALT", "Left Alt");
+                put("RIGHT_ALT", "Right Alt");
+                put("LEFT_CONTROL", "Left Ctrl");
+                put("RIGHT_CONTROL", "Right Ctrl");
+            }};
 
-                // Checking numpad keys with the KEY_KP_ prefix
-                case "KEY_KP_0": return "Num 0";
-                case "KEY_KP_1": return "Num 1";
-                case "KEY_KP_2": return "Num 2";
-                case "KEY_KP_3": return "Num 3";
-                case "KEY_KP_4": return "Num 4";
-                case "KEY_KP_5": return "Num 5";
-                case "KEY_KP_6": return "Num 6";
-                case "KEY_KP_7": return "Num 7";
-                case "KEY_KP_8": return "Num 8";
-                case "KEY_KP_9": return "Num 9";
-                case "KEY_KP_ADD": return "Num +";
-                case "KEY_KP_DECIMAL": return "Num .";
-                case "KEY_KP_DIVIDE": return "Num /";
-                case "KEY_KP_ENTER": return "Num Enter";
-                case "KEY_KP_EQUAL": return "Num =";
-                case "KEY_KP_MULTIPLY": return "Num *";
-                case "KEY_KP_SUBTRACT": return "Num -";
+            String mapped = specialCases.get(keybind);
+            if (mapped != null) return mapped;
 
-                // Default case - removing the KEY_ prefix for regular keys
-                default:
-                    if (keybind.startsWith("KEY_")) {
-                        return keybind.substring(4); // Remove "KEY_"
-                    }
-                    return keybind;
+            if (keybind.startsWith("KEY_KP_")) {
+                String suffix = keybind.substring(7);
+                if (suffix.matches("\\d")) return "Num " + suffix;
+                return switch (suffix) {
+                    case "ADD" -> "Num +";
+                    case "DECIMAL" -> "Num .";
+                    case "DIVIDE" -> "Num /";
+                    case "ENTER" -> "Num Enter";
+                    case "EQUAL" -> "Num =";
+                    case "MULTIPLY" -> "Num *";
+                    case "SUBTRACT" -> "Num -";
+                    default -> keybind;
+                };
             }
+
+            return keybind.startsWith("KEY_") ? keybind.substring(4) : keybind;
+        }
+
+        public String getKeybindRaw() {
+            try {
+                if (moduleType == ModuleType.METEOR && meteorModule != null && meteorModule.keybind != null) {
+                    String rawKeybind = meteorModule.keybind.toString();
+                    if (rawKeybind == null || rawKeybind.isEmpty() || rawKeybind.equals("unbound")) {
+                        return "unbound";
+                    }
+                    return rawKeybind.replaceAll("[\\p{Cntrl}\\p{So}]", "?");
+                } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
+                    final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
+                    if (key != null) {
+                        String rawLabel = key.getLabel(true);
+                        if (rawLabel == null || rawLabel.isEmpty() || rawLabel.equals("unbound")) {
+                            return "unbound";
+                        }
+                        return rawLabel.replaceAll("[\\p{Cntrl}\\p{So}]", "?");
+                    }
+                }
+            } catch (Exception e) {
+            }
+            return "unbound";
         }
 
         public String getMetadata() {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule.getInfoString();
-            } else if (moduleType == ModuleType.RUSHER) {
-                if (rusherModule.getMetadata().isEmpty()) return null;
-                else return rusherModule.getMetadata();
+            try {
+                String moduleId = this.getId();
+                String clientSpecificId = moduleId + "_" + (moduleType == ModuleType.METEOR ? "meteor" : "rusher");
+
+                if (hiddenMetadataModules.contains(clientSpecificId) || hiddenMetadataModules.contains(moduleId)) {
+                    return null;
+                }
+
+                if (moduleType == ModuleType.METEOR && meteorModule != null) {
+                    return meteorModule.getInfoString();
+                } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
+                    String metadata = rusherModule.getMetadata();
+                    return metadata.isEmpty() ? null : metadata;
+                }
+            } catch (Exception e) {
             }
-            throw new RuntimeException("Type not supported");
+            return null;
         }
 
         public boolean isVisible() {
-            if (moduleType == ModuleType.METEOR) {
-                return !hiddenModules.contains(this.getId());
-            } else if (moduleType == ModuleType.RUSHER) {
-                return !(hiddenModules.contains(this.getId()) || rusherModule.isHidden());
+            try {
+                String moduleId = this.getId();
+                String clientSpecificId = moduleId + "_" + (moduleType == ModuleType.METEOR ? "meteor" : "rusher");
+
+                if (hiddenModules.contains(clientSpecificId)) return false;
+                if (hiddenModules.contains(moduleId)) return false;
+
+                return moduleType != ModuleType.RUSHER || rusherModule == null || !rusherModule.isHidden();
+            } catch (Exception e) {
+                return true;
             }
-            throw new RuntimeException("Type not supported");
         }
 
         public String getId() {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule.name.toLowerCase().replaceAll("[-\\s]", "");
-            } else if (moduleType == ModuleType.RUSHER) {
-                return rusherModule.getName().toLowerCase().replaceAll("[-\\s]", "");
+            try {
+                String name = moduleType == ModuleType.METEOR ?
+                        (meteorModule != null ? meteorModule.name : "") :
+                        (rusherModule != null ? rusherModule.getName() : "");
+                return name.toLowerCase().replaceAll("[-\\s]", "");
+            } catch (Exception e) {
+                return "unknown";
             }
-            throw new RuntimeException("Type not supported");
         }
 
         public boolean equals(ModuleHolder moduleHolder) {
-            if (moduleType == ModuleType.METEOR) {
-                return meteorModule == moduleHolder.meteorModule;
-            } else if (moduleType == ModuleType.RUSHER) {
-                return rusherModule == moduleHolder.rusherModule;
+            if (moduleHolder == null) return false;
+            if (this == moduleHolder) return true;
+            try {
+                if (moduleType != moduleHolder.moduleType) return false;
+                return moduleType == ModuleType.METEOR ?
+                        (meteorModule == moduleHolder.meteorModule) :
+                        (rusherModule == moduleHolder.rusherModule);
+            } catch (Exception e) {
+                return false;
             }
-            throw new RuntimeException("Type not supported");
         }
 
-        public enum ModuleType {
-            RUSHER,
-            METEOR
+        @Override
+        public int hashCode() {
+            try {
+                return moduleType == ModuleType.METEOR ?
+                        (meteorModule != null ? meteorModule.hashCode() : 0) :
+                        (rusherModule != null ? rusherModule.hashCode() : 0);
+            } catch (Exception e) {
+                return 0;
+            }
         }
     }
 
@@ -655,32 +659,168 @@ public class CombinedBindListHudElement extends ListHudElement {
             this.module = module;
         }
 
-        @Override
         public Component getText() {
-            String name = lowercase.getValue() ? module.getName().toLowerCase() : module.getName();
-            String keybind = module.getKeybind();
+            try {
+                String name = formatName(module.getName());
+                MutableComponent component;
+                int nameColor;
 
-            // Build display text
-            StringBuilder displayText = new StringBuilder();
-            displayText.append(name).append(" [").append(keybind).append("]");
-
-            // Add metadata if enabled, available, module is active, and not in hidden metadata list
-            if (metadata.getValue() && module.isEnabled() && !hiddenMetadataModules.contains(module.getId())) {
-                String moduleMetadata = module.getMetadata();
-                if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
-                    displayText.append(" (").append(moduleMetadata).append(")");
+                if (boundAsUnbound.getValue()) {
+                    nameColor = unboundColor.getValue().getRGB();
+                } else {
+                    nameColor = module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB();
                 }
+                component = Component.literal(name).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(nameColor)));
+
+                if (!hideBounded.getValue() && showKeys.getValue()) {
+                    String keybind = stripMinecraftColors(rawKeys.getValue() ? module.getKeybindRaw() : module.getKeybind());
+                    int bracketColor = useStateBrackets.getValue() ?
+                            (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                            bracketsColor.getValue().getRGB();
+                    int keyColor = stateKeys.getValue() ?
+                            (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                            keybindsColor.getValue().getRGB();
+                    if (keyBStyle.getValue() != KeyBracketsStyle.None) {
+                        String leftBracket = switch (keyBStyle.getValue()) {
+                            case Square -> "[";
+                            case Round -> "(";
+                            case Curly -> "{";
+                            case Angle -> "<";
+                            case Pipe -> "|";
+                            default -> "";
+                        };
+                        String rightBracket = switch (keyBStyle.getValue()) {
+                            case Square -> "]";
+                            case Round -> ")";
+                            case Curly -> "}";
+                            case Angle -> ">";
+                            case Pipe -> "|";
+                            default -> "";
+                        };
+                        component.append(Component.literal(" " + leftBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(bracketColor))));
+                        component.append(Component.literal(keybind).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(keyColor))));
+                        component.append(Component.literal(rightBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(bracketColor))));
+                    } else {
+                        component.append(Component.literal(" ").withStyle(Style.EMPTY));
+                        component.append(Component.literal(keybind).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(keyColor))));
+                    }
+                }
+
+                if (boundedMeta.getValue() && module.isEnabled()) {
+                    String moduleMetadata = module.getMetadata();
+                    if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
+                        String cleanMetadata = stripMinecraftColors(moduleMetadata);
+                        int metaColor = (stateMeta.getValue() == StateMetaMode.All || stateMeta.getValue() == StateMetaMode.Bound) ?
+                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                                mBoundColor.getValue().getRGB();
+                        int metaBracketColor = stateMBrackets.getValue() ?
+                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                                mBrackets.getValue().getRGB();
+                        if (metaBStyle.getValue() != MetaBracketsStyle.None) {
+                            String leftBracket = switch (metaBStyle.getValue()) {
+                                case Round -> "(";
+                                case Square -> "[";
+                                case Curly -> "{";
+                                case Angle -> "<";
+                                case Pipe -> "|";
+                                default -> "";
+                            };
+                            String rightBracket = switch (metaBStyle.getValue()) {
+                                case Round -> ")";
+                                case Square -> "]";
+                                case Curly -> "}";
+                                case Angle -> ">";
+                                case Pipe -> "|";
+                                default -> "";
+                            };
+                            component.append(Component.literal(" " + leftBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaBracketColor))));
+                            component.append(Component.literal(cleanMetadata).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaColor))));
+                            component.append(Component.literal(rightBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaBracketColor))));
+                        } else {
+                            component.append(Component.literal(" ").withStyle(Style.EMPTY));
+                            component.append(Component.literal(cleanMetadata).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaColor))));
+                        }
+                    }
+                }
+
+                return component;
+            } catch (Exception e) {
+                return Component.literal("Error").withStyle(Style.EMPTY.withColor(TextColor.fromRgb(Color.RED.getRGB())));
             }
-
-            // Using custom colors from ColorSetting
-            int color = module.isEnabled() ? enabledColor.getValueRGB() : disabledColor.getValueRGB();
-            return Component.literal(displayText.toString()).withColor(color);
         }
 
-        @Override
         public boolean shouldRemove() {
-            // Remove if module doesn't have keybind or is not visible
-            return !module.hasKeybind() || !module.isVisible();
+            return !module.hasKeybind() || !module.isVisible() || hideBounded.getValue();
         }
+    }
+
+    class ExtraListItem extends ListItem {
+        public ModuleHolder module;
+
+        public ExtraListItem(ModuleHolder module, ListHudElement parent) {
+            super(parent);
+            this.module = module;
+        }
+
+        public Component getText() {
+            try {
+                String name = formatName(module.getName());
+                MutableComponent component = Component.literal(name).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(unboundColor.getValue().getRGB())));
+
+                if (unboundMeta.getValue()) {
+                    String moduleMetadata = module.getMetadata();
+                    if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
+                        String cleanMetadata = stripMinecraftColors(moduleMetadata);
+                        int metaColor = (stateMeta.getValue() == StateMetaMode.All || stateMeta.getValue() == StateMetaMode.Unbound) ?
+                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                                mUnboundColor.getValue().getRGB();
+                        int metaBracketColor = stateMBrackets.getValue() ?
+                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
+                                mBrackets.getValue().getRGB();
+                        if (metaBStyle.getValue() != MetaBracketsStyle.None) {
+                            String leftBracket = switch (metaBStyle.getValue()) {
+                                case Round -> "(";
+                                case Square -> "[";
+                                case Curly -> "{";
+                                case Angle -> "<";
+                                case Pipe -> "|";
+                                default -> "";
+                            };
+                            String rightBracket = switch (metaBStyle.getValue()) {
+                                case Round -> ")";
+                                case Square -> "]";
+                                case Curly -> "}";
+                                case Angle -> ">";
+                                case Pipe -> "|";
+                                default -> "";
+                            };
+                            component.append(Component.literal(" " + leftBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaBracketColor))));
+                            component.append(Component.literal(cleanMetadata).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaColor))));
+                            component.append(Component.literal(rightBracket).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaBracketColor))));
+                        } else {
+                            component.append(Component.literal(" ").withStyle(Style.EMPTY));
+                            component.append(Component.literal(cleanMetadata).withStyle(Style.EMPTY.withColor(TextColor.fromRgb(metaColor))));
+                        }
+                    }
+                }
+
+                return component;
+            } catch (Exception e) {
+                return Component.literal("Error").withStyle(Style.EMPTY.withColor(TextColor.fromRgb(Color.RED.getRGB())));
+            }
+        }
+
+        public boolean shouldRemove() {
+            return module.hasKeybind() || !module.isEnabled() || !module.isVisible() || !activeUnbound.getValue();
+        }
+    }
+
+    private String formatName(String name) {
+        if (name == null) return "Unknown";
+        return switch (caseSetting.getValue()) {
+            case Uppercase -> name.toUpperCase();
+            case Lowercase -> name.toLowerCase();
+            default -> name;
+        };
     }
 }

@@ -12,75 +12,64 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CombinedBindListPlugin extends Plugin {
-    public static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    public static final String configFile = RusherHackAPI.getConfigPath() + "/combinedbindlist.json";
-    public static final String metadataConfigFile = RusherHackAPI.getConfigPath() + "/combinedbindlist_metadata.json";
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String CONFIG_FILE = RusherHackAPI.getConfigPath() + "/combinedbindlist.json";
+    private static final String METADATA_CONFIG_FILE = RusherHackAPI.getConfigPath() + "/combinedbindlist_metadata.json";
+    private static final Type LIST_TYPE = new TypeToken<ArrayList<String>>() {
+    }.getType();
 
     @Override
     public void onLoad() {
-        this.getLogger().info("Loaded Combined Bind List plugin");
+        try {
+            final CombinedBindListHudElement hudElement = new CombinedBindListHudElement();
+            RusherHackAPI.getHudManager().registerFeature(hudElement);
+            hudElement.load();
 
-        final CombinedBindListHudElement combinedBindListHudElement = new CombinedBindListHudElement();
-        RusherHackAPI.getHudManager().registerFeature(combinedBindListHudElement);
-
-        combinedBindListHudElement.load();
-
-        // Register the combined team (which now includes metadata)
-        final HideModuleCommand hideModuleCommand = new HideModuleCommand();
-        RusherHackAPI.getCommandManager().registerFeature(hideModuleCommand);
-
-        final ListModulesCommand listModulesCommand = new ListModulesCommand();
-        RusherHackAPI.getCommandManager().registerFeature(listModulesCommand);
+            RusherHackAPI.getCommandManager().registerFeature(new HideModuleCommand());
+            RusherHackAPI.getCommandManager().registerFeature(new ListModulesCommand());
+        } catch (Exception e) {
+            getLogger().error("Failed to load CombinedBindList plugin", e);
+        }
     }
 
     @Override
     public void onUnload() {
-        this.getLogger().info("Combined Bind List plugin");
     }
 
     static void saveConfig(List<String> list) {
-        try (Writer writer = new FileWriter(configFile)) {
-            gson.toJson(list, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        saveToFile(CONFIG_FILE, list);
     }
 
     static List<String> loadConfig() {
-        List<String> loadedList = new ArrayList<>();
-
-        try (Reader reader = new FileReader(configFile)) {
-            Type listType = new TypeToken<ArrayList<String>>(){}.getType();
-            loadedList.addAll(gson.fromJson(reader, listType));
-        } catch (FileNotFoundException e) {
-            saveConfig(new ArrayList<>());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return loadedList;
+        return loadFromFile(CONFIG_FILE);
     }
 
     static void saveMetadataConfig(List<String> list) {
-        try (Writer writer = new FileWriter(metadataConfigFile)) {
-            gson.toJson(list, writer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        saveToFile(METADATA_CONFIG_FILE, list);
     }
 
     static List<String> loadMetadataConfig() {
-        List<String> loadedList = new ArrayList<>();
+        return loadFromFile(METADATA_CONFIG_FILE);
+    }
 
-        try (Reader reader = new FileReader(metadataConfigFile)) {
-            Type listType = new TypeToken<ArrayList<String>>(){}.getType();
-            loadedList.addAll(gson.fromJson(reader, listType));
-        } catch (FileNotFoundException e) {
-            saveMetadataConfig(new ArrayList<>());
+    private static void saveToFile(String filePath, List<String> list) {
+        try (Writer writer = new FileWriter(filePath)) {
+            GSON.toJson(list, writer);
         } catch (IOException e) {
-            e.printStackTrace();
+            // Безопасно игнорируем ошибки сохранения
         }
+    }
 
-        return loadedList;
+    private static List<String> loadFromFile(String filePath) {
+        List<String> result = new ArrayList<>();
+        try (Reader reader = new FileReader(filePath)) {
+            List<String> loaded = GSON.fromJson(reader, LIST_TYPE);
+            if (loaded != null) result.addAll(loaded);
+        } catch (FileNotFoundException e) {
+            saveToFile(filePath, new ArrayList<>());
+        } catch (IOException e) {
+            // Безопасно игнорируем ошибки загрузки
+        }
+        return result;
     }
 }

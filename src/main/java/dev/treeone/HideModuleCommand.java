@@ -4,223 +4,274 @@ import org.rusherhack.client.api.RusherHackAPI;
 import org.rusherhack.client.api.feature.command.Command;
 import org.rusherhack.core.command.annotations.CommandExecutor;
 
+import java.util.Optional;
+
 public class HideModuleCommand extends Command {
 
     public HideModuleCommand() {
-        super("combindlist", "Manages hidden modules and metadata - supports: add, remove, list, clear, metadata");
+        super("combindlist", "Manages hidden modules and metadata - supports: add, remove, list, clear, meta commands");
     }
 
-    // Method for normalizing the module name (same as in getId())
     private String normalizeModuleName(String name) {
         return name.toLowerCase().replaceAll("[-\\s]", "");
     }
 
-    @CommandExecutor
-    private String showHelp() {
-        return "CombinedBindList commands:\n" +
-                "*combindlist add <ModuleName> - Hide a module from the bind list\n" +
-                "*combindlist remove <ModuleName> - Show a hidden module again\n" +
-                "*combindlist list - Show all currently hidden modules\n" +
-                "*combindlist clear - Clear all hidden modules (make all visible)\n" +
-                "*combindlist metaadd <ModuleName> - Hide metadata for a specific module\n" +
-                "*combindlist metaremove <ModuleName> - Show metadata for a hidden module again\n" +
-                "*combindlist metalist - Show all modules with hidden metadata\n" +
-                "*combindlist metaclear - Clear all hidden metadata";
+    private String createClientSpecificId(String moduleId, String client) {
+        return moduleId + "_" + client.toLowerCase();
     }
 
-    // ========== DEFAULT MODULES ==========
+    private boolean hasDuplicates(String moduleId, CombinedBindListHudElement hudElement) {
+        if (hudElement == null || hudElement.modules == null) return false;
+
+        boolean hasRusher = false, hasMeteor = false;
+        for (CombinedBindListHudElement.ModuleHolder module : hudElement.modules) {
+            if (module != null && moduleId.equals(module.getId())) {
+                if (module.moduleType == CombinedBindListHudElement.ModuleHolder.ModuleType.RUSHER) {
+                    hasRusher = true;
+                } else if (module.moduleType == CombinedBindListHudElement.ModuleHolder.ModuleType.METEOR) {
+                    hasMeteor = true;
+                }
+            }
+        }
+        return hasRusher && hasMeteor;
+    }
+
+    private CombinedBindListHudElement getHudElement() {
+        try {
+            return (CombinedBindListHudElement) RusherHackAPI.getHudManager()
+                    .getFeature("CombinedBindList").orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @CommandExecutor
+    private String showHelp() {
+        return """
+        CombinedBindList Commands:
+        
+        Module visibility:
+        • add <name> [rusher|meteor] - Hide module
+        • remove <name> [rusher|meteor] - Show module  
+        • list - List hidden modules
+        • clear - Show all modules
+        
+        Metadata visibility:
+        • metaadd <name> [rusher|meteor] - Hide metadata
+        • metaremove <name> [rusher|meteor] - Show metadata
+        • metalist - List modules with hidden metadata  
+        • metaclear - Show all metadata
+        
+        Note: Use [rusher|meteor] only for duplicate modules""";
+    }
 
     @CommandExecutor(subCommand = "add")
-    @CommandExecutor.Argument("string")
-    private String addModule(String string) {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+    @CommandExecutor.Argument({"string", "string"})
+    private String addModule(String moduleName, Optional<String> client) {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-                String moduleId = normalizeModuleName(string);
+        String moduleId = normalizeModuleName(moduleName);
+        if (!hudElement.isModuleLoaded(moduleId)) {
+            return "No module with name matches '" + moduleName + "'";
+        }
 
-                if (!hudElement.isModuleLoaded(moduleId)) {
-                    return "No module with name matches '" + string + "'";
-                }
-
-                if (CombinedBindListHudElement.hiddenModules.contains(moduleId)) {
-                    return "Module '" + string + "' is already hidden";
-                }
-
-                CombinedBindListHudElement.hiddenModules.add(moduleId);
-                hudElement.save();
-                return "Added '" + string + "' to hidden module list";
-            } else {
-                return "CombinedBindList HUD element is not present";
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
             }
-        } catch (Exception e) {
-            return "Error adding module: " + e.getMessage();
+            if (!hasDuplicates(moduleId, hudElement)) {
+                return "This module doesn't have a duplicate, use *combindlist add without rusher/meteor at the end";
+            }
+            String clientSpecificId = createClientSpecificId(moduleId, clientType);
+            if (CombinedBindListHudElement.hiddenModules.contains(clientSpecificId)) {
+                return "Module '" + moduleName + "' from " + clientType + " is already hidden";
+            }
+            CombinedBindListHudElement.hiddenModules.add(clientSpecificId);
+            hudElement.save();
+            return "Added '" + moduleName + "' from " + clientType + " to hidden module list";
+        } else {
+            if (CombinedBindListHudElement.hiddenModules.contains(moduleId)) {
+                return "Module '" + moduleName + "' is already hidden";
+            }
+            CombinedBindListHudElement.hiddenModules.add(moduleId);
+            hudElement.save();
+            return "Added '" + moduleName + "' to hidden module list";
         }
     }
 
     @CommandExecutor(subCommand = "remove")
-    @CommandExecutor.Argument("string")
-    private String removeModule(String string) {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+    @CommandExecutor.Argument({"string", "string"})
+    private String removeModule(String moduleName, Optional<String> client) {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-                String moduleId = normalizeModuleName(string);
+        String moduleId = normalizeModuleName(moduleName);
 
-                if (CombinedBindListHudElement.hiddenModules.remove(moduleId)) {
-                    hudElement.save();
-                    return "Removed '" + string + "' from hidden modules list";
-                } else {
-                    return "Module '" + string + "' is not in the hidden list";
-                }
-            } else {
-                return "CombinedBindList HUD element is not present";
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
             }
-        } catch (Exception e) {
-            return "Error removing module: " + e.getMessage();
+            String clientSpecificId = createClientSpecificId(moduleId, clientType);
+            if (CombinedBindListHudElement.hiddenModules.remove(clientSpecificId)) {
+                hudElement.save();
+                return "Removed '" + moduleName + "' from " + clientType + " from hidden modules list";
+            } else {
+                return "Module '" + moduleName + "' from " + clientType + " is not in the hidden list";
+            }
+        } else {
+            boolean removed = CombinedBindListHudElement.hiddenModules.remove(moduleId);
+            removed |= CombinedBindListHudElement.hiddenModules.remove(createClientSpecificId(moduleId, "rusher"));
+            removed |= CombinedBindListHudElement.hiddenModules.remove(createClientSpecificId(moduleId, "meteor"));
+
+            if (removed) {
+                hudElement.save();
+                return "Removed '" + moduleName + "' from hidden modules list";
+            } else {
+                return "Module '" + moduleName + "' is not in the hidden list";
+            }
         }
     }
 
     @CommandExecutor(subCommand = "list")
     private String listHiddenModules() {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                if (CombinedBindListHudElement.hiddenModules.isEmpty()) {
-                    return "No modules are currently hidden";
-                }
-
-                StringBuilder modules = new StringBuilder("Hidden modules: ");
-                for (int i = 0; i < CombinedBindListHudElement.hiddenModules.size(); i++) {
-                    String hiddenModule = CombinedBindListHudElement.hiddenModules.get(i);
-                    modules.append(hiddenModule);
-
-                    if (i < CombinedBindListHudElement.hiddenModules.size() - 1) {
-                        modules.append(", ");
-                    }
-                }
-                return modules.toString();
-            } else {
-                return "CombinedBindList HUD element is not present";
-            }
-        } catch (Exception e) {
-            return "Error listing modules: " + e.getMessage();
+        if (CombinedBindListHudElement.hiddenModules.isEmpty()) {
+            return "No modules are currently hidden";
         }
+
+        StringBuilder modules = new StringBuilder("Hidden modules: ");
+        for (int i = 0; i < CombinedBindListHudElement.hiddenModules.size(); i++) {
+            String hiddenModule = CombinedBindListHudElement.hiddenModules.get(i);
+
+            if (hiddenModule.contains("_rusher")) {
+                modules.append(hiddenModule.replace("_rusher", " (rusher)"));
+            } else if (hiddenModule.contains("_meteor")) {
+                modules.append(hiddenModule.replace("_meteor", " (meteor)"));
+            } else {
+                modules.append(hiddenModule);
+            }
+
+            if (i < CombinedBindListHudElement.hiddenModules.size() - 1) {
+                modules.append(", ");
+            }
+        }
+        return modules.toString();
     }
 
     @CommandExecutor(subCommand = "clear")
     private String clearHiddenModules() {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-                int clearedCount = CombinedBindListHudElement.hiddenModules.size();
-                CombinedBindListHudElement.hiddenModules.clear();
-                hudElement.save();
-
-                return "Cleared " + clearedCount + " hidden modules - all modules are now visible";
-            } else {
-                return "CombinedBindList HUD element is not present";
-            }
-        } catch (Exception e) {
-            return "Error clearing modules: " + e.getMessage();
-        }
+        int clearedCount = CombinedBindListHudElement.hiddenModules.size();
+        CombinedBindListHudElement.hiddenModules.clear();
+        hudElement.save();
+        return "Cleared " + clearedCount + " hidden modules";
     }
 
-    // ========== METADATA ==========
-
     @CommandExecutor(subCommand = "metaadd")
-    @CommandExecutor.Argument("string")
-    private String addMetadata(String string) {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
-
-                String moduleId = normalizeModuleName(string);
-
-                if (!hudElement.isModuleLoaded(moduleId)) {
-                    return "No module with name matches '" + string + "'";
-                }
-
-                if (CombinedBindListHudElement.hiddenMetadataModules.contains(moduleId)) {
-                    return "Metadata for module '" + string + "' is already hidden";
-                }
-
-                CombinedBindListHudElement.hiddenMetadataModules.add(moduleId);
-                hudElement.save();
-                return "Hidden metadata for '" + string + "'";
-            } else {
-                return "CombinedBindList HUD element is not present";
-            }
-        } catch (Exception e) {
-            return "Error hiding metadata: " + e.getMessage();
-        }
+    @CommandExecutor.Argument({"string", "string"})
+    private String addMetadata(String moduleName, Optional<String> client) {
+        return handleMetadataCommand(moduleName, client, true, "add");
     }
 
     @CommandExecutor(subCommand = "metaremove")
-    @CommandExecutor.Argument("string")
-    private String removeMetadata(String string) {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+    @CommandExecutor.Argument({"string", "string"})
+    private String removeMetadata(String moduleName, Optional<String> client) {
+        return handleMetadataCommand(moduleName, client, false, "remove");
+    }
 
-                String moduleId = normalizeModuleName(string);
+    private String handleMetadataCommand(String moduleName, Optional<String> client, boolean isAdd, String action) {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-                if (CombinedBindListHudElement.hiddenMetadataModules.remove(moduleId)) {
-                    hudElement.save();
-                    return "Showing metadata for '" + string + "' again";
-                } else {
-                    return "Metadata for module '" + string + "' is not hidden";
+        String moduleId = normalizeModuleName(moduleName);
+        if (isAdd && !hudElement.isModuleLoaded(moduleId)) {
+            return "No module with name matches '" + moduleName + "'";
+        }
+
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
+            }
+            if (isAdd && !hasDuplicates(moduleId, hudElement)) {
+                return "This module doesn't have a duplicate, use *combindlist meta" + action + " without rusher/meteor at the end";
+            }
+
+            String clientSpecificId = createClientSpecificId(moduleId, clientType);
+            boolean changed = isAdd ?
+                    !CombinedBindListHudElement.hiddenMetadataModules.contains(clientSpecificId) &&
+                            CombinedBindListHudElement.hiddenMetadataModules.add(clientSpecificId) :
+                    CombinedBindListHudElement.hiddenMetadataModules.remove(clientSpecificId);
+
+            if (changed) {
+                hudElement.save();
+                return (isAdd ? "Hidden" : "Showing") + " metadata for '" + moduleName + "' from " + clientType +
+                        (isAdd ? "" : " again");
+            } else {
+                return "Metadata for module '" + moduleName + "' from " + clientType + " is " +
+                        (isAdd ? "already hidden" : "not hidden");
+            }
+        } else {
+            boolean changed = false;
+            if (isAdd) {
+                if (!CombinedBindListHudElement.hiddenMetadataModules.contains(moduleId)) {
+                    CombinedBindListHudElement.hiddenMetadataModules.add(moduleId);
+                    changed = true;
                 }
             } else {
-                return "CombinedBindList HUD element is not present";
+                changed = CombinedBindListHudElement.hiddenMetadataModules.remove(moduleId);
+                changed |= CombinedBindListHudElement.hiddenMetadataModules.remove(createClientSpecificId(moduleId, "rusher"));
+                changed |= CombinedBindListHudElement.hiddenMetadataModules.remove(createClientSpecificId(moduleId, "meteor"));
             }
-        } catch (Exception e) {
-            return "Error showing metadata: " + e.getMessage();
+
+            if (changed) {
+                hudElement.save();
+                return (isAdd ? "Hidden" : "Showing") + " metadata for '" + moduleName + "'" +
+                        (isAdd ? "" : " again");
+            } else {
+                return "Metadata for module '" + moduleName + "' is " +
+                        (isAdd ? "already hidden" : "not hidden");
+            }
         }
     }
 
     @CommandExecutor(subCommand = "metalist")
     private String listHiddenMetadata() {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                if (CombinedBindListHudElement.hiddenMetadataModules.isEmpty()) {
-                    return "No modules have hidden metadata";
-                }
-
-                StringBuilder modules = new StringBuilder("Modules with hidden metadata: ");
-                for (int i = 0; i < CombinedBindListHudElement.hiddenMetadataModules.size(); i++) {
-                    String hiddenModule = CombinedBindListHudElement.hiddenMetadataModules.get(i);
-                    modules.append(hiddenModule);
-
-                    if (i < CombinedBindListHudElement.hiddenMetadataModules.size() - 1) {
-                        modules.append(", ");
-                    }
-                }
-                return modules.toString();
-            } else {
-                return "CombinedBindList HUD element is not present";
-            }
-        } catch (Exception e) {
-            return "Error listing metadata: " + e.getMessage();
+        if (CombinedBindListHudElement.hiddenMetadataModules.isEmpty()) {
+            return "No modules have hidden metadata";
         }
+
+        StringBuilder modules = new StringBuilder("Modules with hidden metadata: ");
+        for (int i = 0; i < CombinedBindListHudElement.hiddenMetadataModules.size(); i++) {
+            String hiddenModule = CombinedBindListHudElement.hiddenMetadataModules.get(i);
+
+            if (hiddenModule.contains("_rusher")) {
+                modules.append(hiddenModule.replace("_rusher", " (rusher)"));
+            } else if (hiddenModule.contains("_meteor")) {
+                modules.append(hiddenModule.replace("_meteor", " (meteor)"));
+            } else {
+                modules.append(hiddenModule);
+            }
+
+            if (i < CombinedBindListHudElement.hiddenMetadataModules.size() - 1) {
+                modules.append(", ");
+            }
+        }
+        return modules.toString();
     }
 
     @CommandExecutor(subCommand = "metaclear")
     private String clearHiddenMetadata() {
-        try {
-            if (RusherHackAPI.getHudManager().getFeature("CombinedBindList").isPresent()) {
-                CombinedBindListHudElement hudElement = (CombinedBindListHudElement) RusherHackAPI.getHudManager().getFeature("CombinedBindList").get();
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-                int clearedCount = CombinedBindListHudElement.hiddenMetadataModules.size();
-                CombinedBindListHudElement.hiddenMetadataModules.clear();
-                hudElement.save();
-
-                return "Cleared " + clearedCount + " hidden metadata modules - metadata will show for all modules";
-            } else {
-                return "CombinedBindList HUD element is not present";
-            }
-        } catch (Exception e) {
-            return "Error clearing metadata: " + e.getMessage();
-        }
+        int clearedCount = CombinedBindListHudElement.hiddenMetadataModules.size();
+        CombinedBindListHudElement.hiddenMetadataModules.clear();
+        hudElement.save();
+        return "Cleared " + clearedCount + " hidden metadata modules";
     }
 }
