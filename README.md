@@ -4,6 +4,6 @@ RusherHack Hud Element to display binds from both meteor and rusher with customi
 
 - **```*combindlist``` to manage all modules with assigned keybinds.**
 
-<img width="404" height="780" alt="Screenshot_1" src="https://github.com/user-attachments/assets/6e5bbed8-c1c1-4488-b15e-e2901e10ab2f" />
-<img width="200" height="180" alt="Screenshot_2" src="https://github.com/user-attachments/assets/c180bad7-4447-452d-ad68-72ba563e7811" />
-<img width="433" height="258" alt="Screenshot_3" src="https://github.com/user-attachments/assets/78e98225-6e8a-4d49-a15d-62b83ae7fc8b" />
+<img width="447" height="762" alt="Screenshot_1" src="https://github.com/user-attachments/assets/c2233f40-7fcf-4898-a2fc-70e2e1538ef9" />
+<img width="354" height="718" alt="Screenshot_2" src="https://github.com/user-attachments/assets/9e804f14-5788-4661-a779-072ac0cbd4fe" />
+<img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/e6c349b2-0eb9-4e68-bf46-df1d988248d6" />
