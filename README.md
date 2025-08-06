@@ -30,6 +30,10 @@ RusherHack HUD Element to display keybinds or active modules from both Meteor an
 - **MUnbound** - Color for metadata text of unbound modules
 - **MBrackets** - Color for metadata brackets
 
+***For any information about the plugin, contact:***
+- **Discord – ```treeone```**
+- **Telegram – ```tr330ne```**
+
 <img width="447" height="762" alt="Screenshot_1" src="https://github.com/user-attachments/assets/c2233f40-7fcf-4898-a2fc-70e2e1538ef9" />
 <img width="277" height="720" alt="Screenshot_2" src="https://github.com/user-attachments/assets/2064e1b3-adb7-4ec4-ae22-26792214de93" />
 <img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/e6c349b2-0eb9-4e68-bf46-df1d988248d6" />
