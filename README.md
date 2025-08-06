@@ -34,6 +34,6 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 - **Discord – ```treeone```**
 - **Telegram – ```tr330ne```**
 
-<img width="262" height="680" alt="Screenshot_1" src="https://github.com/user-attachments/assets/fafcfb24-67e0-4ed8-832b-25bcf4a66d9b" />
-<img width="453" height="778" alt="Screenshot_2" src="https://github.com/user-attachments/assets/a6b6a49c-cb4f-460b-b025-7efffd3e5960" />
-<img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/d696f867-cb1e-4477-8d17-40834fcea5fc" />
+<img width="453" height="778" alt="Screenshot_1" src="https://github.com/user-attachments/assets/b0afc884-8c5e-40f9-83ec-cd313a02a1f1" />
+<img width="262" height="680" alt="Screenshot_2" src="https://github.com/user-attachments/assets/27389083-ebe8-4589-a8e8-531a616efc9a" />
+<img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/06cedcf9-0d58-445c-9a52-bd0662042902" />
