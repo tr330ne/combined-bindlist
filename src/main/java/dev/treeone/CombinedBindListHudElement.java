@@ -35,27 +35,29 @@ public class CombinedBindListHudElement extends ListHudElement {
     private final BooleanSetting hideBounded = new BooleanSetting("HideBounded", "Hides modules with a keybind", false);
     private final BooleanSetting boundedMeta = new BooleanSetting("BoundedMeta", "Show metadata for modules with keybinds", false);
     private final BooleanSetting unboundMeta = new BooleanSetting("UnboundMeta", "Show metadata for active unbound modules", false);
-    private final BooleanSetting stateKeys = new BooleanSetting("StateKeys", "Use enabled/disabled color for keybind text", false);
-    private final EnumSetting<StateMetaMode> stateMeta = new EnumSetting<>("StateMeta", "Use enabled/disabled color for metadata text", StateMetaMode.None);
-    private final BooleanSetting useStateBrackets = new BooleanSetting("StateBrackets", "Use enabled/disabled color for keybind brackets", true);
-    private final BooleanSetting stateMBrackets = new BooleanSetting("StateMBrackets", "Use enabled/disabled color for metadata brackets", false);
+    private final BooleanSetting stateKeys = new BooleanSetting("StateKeys", "Use state color for keybind text", false);
+    private final BooleanSetting stateBMeta = new BooleanSetting("StateBMeta", "Use state color for metadata of bound modules", true);
+    private final BooleanSetting useStateBrackets = new BooleanSetting("StateBrackets", "Use state color for keybind brackets", true);
+    private final BooleanSetting stateMBrackets = new BooleanSetting("StateMBrackets", "Use state color for metadata brackets of bound modules", true);
     private final EnumSetting<KeyBracketsStyle> keyBStyle = new EnumSetting<>("KeyBStyle", "Style of keybind brackets", KeyBracketsStyle.Square);
     private final EnumSetting<MetaBracketsStyle> metaBStyle = new EnumSetting<>("MetaBStyle", "Style of metadata brackets", MetaBracketsStyle.Round);
     private final ColorSetting enabledColor = new ColorSetting("Enabled", "Color for enabled modules", Color.GREEN)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
     private final ColorSetting disabledColor = new ColorSetting("Disabled", "Color for disabled modules", Color.RED)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
-    private final ColorSetting unboundColor = new ColorSetting("Unbound", "Color for active modules without keybinds", Color.BLUE)
+    private final ColorSetting unboundColor = new ColorSetting("Unbound", "Color for active modules without keybinds", Color.CYAN)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
     private final ColorSetting keybindsColor = new ColorSetting("Keybinds", "Color for keybind text", Color.WHITE)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
-    private final ColorSetting bracketsColor = new ColorSetting("Brackets", "Color for keybind brackets", Color.WHITE)
+    private final ColorSetting bracketsColor = new ColorSetting("Brackets", "Color for keybind brackets", Color.BLUE)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
     private final ColorSetting mBoundColor = new ColorSetting("MBound", "Color for metadata text of bound modules", Color.YELLOW)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
     private final ColorSetting mUnboundColor = new ColorSetting("MUnbound", "Color for metadata text of unbound modules", Color.YELLOW)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
-    private final ColorSetting mBrackets = new ColorSetting("MBrackets", "Color for metadata brackets", Color.YELLOW)
+    private final ColorSetting mBrackets = new ColorSetting("MBrackets", "Color for metadata brackets of bound modules", Color.BLUE)
+            .setRainbowAllowed(true).setThemeSyncAllowed(true);
+    private final ColorSetting mUBrackets = new ColorSetting("MUBrackets", "Color for metadata brackets of unbound modules", Color.BLUE)
             .setRainbowAllowed(true).setThemeSyncAllowed(true);
 
     List<ModuleHolder> modules = new ArrayList<>();
@@ -65,7 +67,6 @@ public class CombinedBindListHudElement extends ListHudElement {
     public enum CaseType { Default, Lowercase, Uppercase }
     public enum KeyBracketsStyle { Square, Round, Curly, Angle, Pipe, None }
     public enum MetaBracketsStyle { Round, Square, Curly, Angle, Pipe, None }
-    public enum StateMetaMode { All, Bound, Unbound, None }
 
     public CombinedBindListHudElement() {
         super("CombinedBindList");
@@ -75,9 +76,10 @@ public class CombinedBindListHudElement extends ListHudElement {
         keybindsColor.setAlphaAllowed(false);
         bracketsColor.setAlphaAllowed(false);
         mBrackets.setAlphaAllowed(false);
+        mUBrackets.setAlphaAllowed(false);
         mBoundColor.setAlphaAllowed(false);
         mUnboundColor.setAlphaAllowed(false);
-        registerSettings(caseSetting, showKeys, rawKeys, activeUnbound, boundAsUnbound, hideBounded, boundedMeta, unboundMeta, stateKeys, stateMeta, useStateBrackets, stateMBrackets, keyBStyle, metaBStyle, enabledColor, disabledColor, unboundColor, keybindsColor, bracketsColor, mBoundColor, mUnboundColor, mBrackets);
+        registerSettings(caseSetting, showKeys, rawKeys, activeUnbound, boundAsUnbound, hideBounded, boundedMeta, unboundMeta, stateKeys, stateBMeta, useStateBrackets, stateMBrackets, keyBStyle, metaBStyle, enabledColor, disabledColor, unboundColor, keybindsColor, bracketsColor, mBoundColor, mUnboundColor, mBrackets, mUBrackets);
     }
 
     private String stripMinecraftColors(String text) {
@@ -565,7 +567,11 @@ public class CombinedBindListHudElement extends ListHudElement {
                     if (rawKeybind == null || rawKeybind.isEmpty() || rawKeybind.equals("unbound")) {
                         return "unbound";
                     }
-                    return rawKeybind.replaceAll("[\\p{Cntrl}\\p{So}]", "?");
+                    rawKeybind = rawKeybind.replaceAll("[\\p{Cntrl}\\p{So}]", "");
+                    if (rawKeybind.matches("^[A-Z]$")) {
+                        return rawKeybind;
+                    }
+                    return rawKeybind;
                 } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
                     final IKey key = RusherHackAPI.getBindManager().getBindRegistry().get(rusherModule);
                     if (key != null) {
@@ -573,7 +579,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                         if (rawLabel == null || rawLabel.isEmpty() || rawLabel.equals("unbound")) {
                             return "unbound";
                         }
-                        return rawLabel.replaceAll("[\\p{Cntrl}\\p{So}]", "?");
+                        return rawLabel.replaceAll("[\\p{Cntrl}\\p{So}]", "");
                     }
                 }
             } catch (Exception e) {
@@ -710,7 +716,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String moduleMetadata = module.getMetadata();
                     if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
                         String cleanMetadata = stripMinecraftColors(moduleMetadata);
-                        int metaColor = (stateMeta.getValue() == StateMetaMode.All || stateMeta.getValue() == StateMetaMode.Bound) ?
+                        int metaColor = stateBMeta.getValue() ?
                                 (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
                                 mBoundColor.getValue().getRGB();
                         int metaBracketColor = stateMBrackets.getValue() ?
@@ -771,12 +777,8 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String moduleMetadata = module.getMetadata();
                     if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
                         String cleanMetadata = stripMinecraftColors(moduleMetadata);
-                        int metaColor = (stateMeta.getValue() == StateMetaMode.All || stateMeta.getValue() == StateMetaMode.Unbound) ?
-                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
-                                mUnboundColor.getValue().getRGB();
-                        int metaBracketColor = stateMBrackets.getValue() ?
-                                (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
-                                mBrackets.getValue().getRGB();
+                        int metaColor = mUnboundColor.getValue().getRGB();
+                        int metaBracketColor = mUBrackets.getValue().getRGB();
                         if (metaBStyle.getValue() != MetaBracketsStyle.None) {
                             String leftBracket = switch (metaBStyle.getValue()) {
                                 case Round -> "(";

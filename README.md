@@ -4,7 +4,7 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 
 - **```*combindlist``` to manage all modules.**
 
-# Options:
+## Options:
 - **Animations** - Animation of hiding/showing modules
 - **Sorting** - Sorting modules by Lexicographical/Alphabetical
 - **Case** - Default/Lowercase/Uppercase letters
@@ -16,9 +16,9 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 - **BoundedMeta** - Show metadata for modules with keybinds
 - **UnboundMeta** - Show metadata for active unbound modules
 - **StateKeys** - Use enabled/disabled color for keybind text
-- **StateMeta** - Use enabled/disabled color for metadata text
+- **StateBMeta** - Use enabled/disabled color for metadata of bound modules
 - **StateBrackets** - Use enabled/disabled color for keybind brackets
-- **StateMBrackets** - Use enabled/disabled color for metadata brackets
+- **StateMBrackets** - Use enabled/disabled color for metadata brackets of bound modules
 - **KeyBStyle** - Style of keybind brackets: Square/Round/Curly/Angle/Pipe/None
 - **MetaBStyle** - Style of metadata brackets: Round/Square/Curly/Angle/Pipe/None
 - **Enabled** - Color for enabled modules
@@ -29,11 +29,12 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 - **MBound** - Color for metadata text of bound modules
 - **MUnbound** - Color for metadata text of unbound modules
 - **MBrackets** - Color for metadata brackets
+- **MUBrackets** - Color for metadata brackets of unbound modules
 
 ***For any information about the plugin, contact:***
 - **Discord – ```treeone```**
 - **Telegram – ```tr330ne```**
-r
+
 <img width="453" height="778" alt="Screenshot_1" src="https://github.com/user-attachments/assets/b0afc884-8c5e-40f9-83ec-cd313a02a1f1" />
 <img width="262" height="680" alt="Screenshot_2" src="https://github.com/user-attachments/assets/27389083-ebe8-4589-a8e8-531a616efc9a" />
 <img width="460" height="243" alt="Screenshot_3" src="https://github.com/user-attachments/assets/06cedcf9-0d58-445c-9a52-bd0662042902" />
