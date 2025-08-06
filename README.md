@@ -5,7 +5,7 @@ RusherHack HUD Element to display keybinds or active modules from both Meteor an
 - **```*combindlist``` to manage all modules.**
 
 # Options:
-- **Animations** - animation of hiding/showing modules
+- **Animations** - Animation of hiding/showing modules
 - **Sorting** - Sorting modules by Lexicographical/Alphabetical
 - **Case** - Default/Lowercase/Uppercase letters
 - **ShowKeys** - Show keybind text for modules with keybinds
