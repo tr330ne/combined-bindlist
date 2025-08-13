@@ -5,11 +5,12 @@ import org.rusherhack.client.api.feature.command.Command;
 import org.rusherhack.core.command.annotations.CommandExecutor;
 
 import java.util.Optional;
+import java.util.Set;
 
 public class HideModuleCommand extends Command {
 
     public HideModuleCommand() {
-        super("combindlist", "Manages hidden modules and metadata - supports: add, remove, list, clear, meta commands");
+        super("combindlist", "Manages hidden modules and metadata - supports: add, remove, list, addall, clear, meta commands, duplicates");
     }
 
     private String normalizeModuleName(String name) {
@@ -54,13 +55,16 @@ public class HideModuleCommand extends Command {
         • add <name> [rusher|meteor] - Hide module
         • remove <name> [rusher|meteor] - Show module  
         • list - List hidden modules
-        • clear - Show all modules
+        • addall [rusher|meteor] - Hide all modules/by client
+        • clear [rusher|meteor] - Show all modules/by client
+        • duplicates - List modules present in both clients
         
         Metadata visibility:
         • metaadd <name> [rusher|meteor] - Hide metadata
         • metaremove <name> [rusher|meteor] - Show metadata
         • metalist - List modules with hidden metadata  
-        • metaclear - Show all metadata
+        • metaaddall [rusher|meteor] - Hide all metadata/by client
+        • metaclear [rusher|meteor] - Show all metadata/by client
         
         Note: Use [rusher|meteor] only for duplicate modules""";
     }
@@ -160,15 +164,105 @@ public class HideModuleCommand extends Command {
         return modules.toString();
     }
 
-    @CommandExecutor(subCommand = "clear")
-    private String clearHiddenModules() {
+    @CommandExecutor(subCommand = "addall")
+    @CommandExecutor.Argument("string")
+    private String addAllModules(Optional<String> client) {
         CombinedBindListHudElement hudElement = getHudElement();
         if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-        int clearedCount = CombinedBindListHudElement.hiddenModules.size();
-        CombinedBindListHudElement.hiddenModules.clear();
-        hudElement.save();
-        return "Cleared " + clearedCount + " hidden modules";
+        int addedCount = 0;
+        
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
+            }
+            
+            CombinedBindListHudElement.ModuleHolder.ModuleType targetType = 
+                clientType.equals("rusher") ? CombinedBindListHudElement.ModuleHolder.ModuleType.RUSHER : 
+                CombinedBindListHudElement.ModuleHolder.ModuleType.METEOR;
+            
+            for (CombinedBindListHudElement.ModuleHolder module : hudElement.modules) {
+                if (module != null && module.moduleType == targetType) {
+                    String moduleId = module.getId();
+                    String clientSpecificId = createClientSpecificId(moduleId, clientType);
+                    if (!CombinedBindListHudElement.hiddenModules.contains(clientSpecificId)) {
+                        CombinedBindListHudElement.hiddenModules.add(clientSpecificId);
+                        addedCount++;
+                    }
+                }
+            }
+            
+            hudElement.save();
+            return "Added " + addedCount + " modules from " + clientType + " to hidden list";
+        } else {
+            for (CombinedBindListHudElement.ModuleHolder module : hudElement.modules) {
+                if (module != null) {
+                    String moduleId = module.getId();
+                    if (!CombinedBindListHudElement.hiddenModules.contains(moduleId)) {
+                        CombinedBindListHudElement.hiddenModules.add(moduleId);
+                        addedCount++;
+                    }
+                }
+            }
+            
+            hudElement.save();
+            return "Added " + addedCount + " modules to hidden list";
+        }
+    }
+
+    @CommandExecutor(subCommand = "clear")
+    @CommandExecutor.Argument("string")
+    private String clearHiddenModules(Optional<String> client) {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
+
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
+            }
+
+            int clearedCount = 0;
+            String suffix = "_" + clientType;
+            
+            for (int i = CombinedBindListHudElement.hiddenModules.size() - 1; i >= 0; i--) {
+                String module = CombinedBindListHudElement.hiddenModules.get(i);
+                if (module.endsWith(suffix)) {
+                    CombinedBindListHudElement.hiddenModules.remove(i);
+                    clearedCount++;
+                }
+            }
+            
+            hudElement.save();
+            return "Cleared " + clearedCount + " hidden modules from " + clientType;
+        } else {
+            int clearedCount = CombinedBindListHudElement.hiddenModules.size();
+            CombinedBindListHudElement.hiddenModules.clear();
+            hudElement.save();
+            return "Cleared " + clearedCount + " hidden modules";
+        }
+    }
+
+    @CommandExecutor(subCommand = "duplicates")
+    private String listDuplicateModules() {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
+
+        Set<String> duplicates = hudElement.getDuplicateModules();
+        if (duplicates.isEmpty()) {
+            return "No duplicate modules found";
+        }
+
+        StringBuilder modules = new StringBuilder("Duplicate modules (" + duplicates.size() + "): ");
+        String[] duplicateArray = duplicates.toArray(new String[0]);
+        for (int i = 0; i < duplicateArray.length; i++) {
+            modules.append(duplicateArray[i]);
+            if (i < duplicateArray.length - 1) {
+                modules.append(", ");
+            }
+        }
+        return modules.toString();
     }
 
     @CommandExecutor(subCommand = "metaadd")
@@ -264,14 +358,82 @@ public class HideModuleCommand extends Command {
         return modules.toString();
     }
 
-    @CommandExecutor(subCommand = "metaclear")
-    private String clearHiddenMetadata() {
+    @CommandExecutor(subCommand = "metaaddall")
+    @CommandExecutor.Argument("string")
+    private String addAllMetadata(Optional<String> client) {
         CombinedBindListHudElement hudElement = getHudElement();
         if (hudElement == null) return "CombinedBindList HUD element is not present";
 
-        int clearedCount = CombinedBindListHudElement.hiddenMetadataModules.size();
-        CombinedBindListHudElement.hiddenMetadataModules.clear();
-        hudElement.save();
-        return "Cleared " + clearedCount + " hidden metadata modules";
+        int addedCount = 0;
+        
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
+            }
+            
+            CombinedBindListHudElement.ModuleHolder.ModuleType targetType = 
+                clientType.equals("rusher") ? CombinedBindListHudElement.ModuleHolder.ModuleType.RUSHER : 
+                CombinedBindListHudElement.ModuleHolder.ModuleType.METEOR;
+            
+            for (CombinedBindListHudElement.ModuleHolder module : hudElement.modules) {
+                if (module != null && module.moduleType == targetType) {
+                    String moduleId = module.getId();
+                    String clientSpecificId = createClientSpecificId(moduleId, clientType);
+                    if (!CombinedBindListHudElement.hiddenMetadataModules.contains(clientSpecificId)) {
+                        CombinedBindListHudElement.hiddenMetadataModules.add(clientSpecificId);
+                        addedCount++;
+                    }
+                }
+            }
+            
+            hudElement.save();
+            return "Added " + addedCount + " modules from " + clientType + " to hidden metadata list";
+        } else {
+            for (CombinedBindListHudElement.ModuleHolder module : hudElement.modules) {
+                if (module != null) {
+                    String moduleId = module.getId();
+                    if (!CombinedBindListHudElement.hiddenMetadataModules.contains(moduleId)) {
+                        CombinedBindListHudElement.hiddenMetadataModules.add(moduleId);
+                        addedCount++;
+                    }
+                }
+            }
+            
+            hudElement.save();
+            return "Added " + addedCount + " modules to hidden metadata list";
+        }
+    }
+
+    @CommandExecutor(subCommand = "metaclear")
+    @CommandExecutor.Argument("string")
+    private String clearHiddenMetadata(Optional<String> client) {
+        CombinedBindListHudElement hudElement = getHudElement();
+        if (hudElement == null) return "CombinedBindList HUD element is not present";
+
+        if (client.isPresent()) {
+            String clientType = client.get().toLowerCase();
+            if (!clientType.equals("rusher") && !clientType.equals("meteor")) {
+                return "Invalid client type '" + client.get() + "'. Use 'rusher' or 'meteor'";
+            }
+
+            int clearedCount = 0;
+            String suffix = "_" + clientType;
+            for (int i = CombinedBindListHudElement.hiddenMetadataModules.size() - 1; i >= 0; i--) {
+                String module = CombinedBindListHudElement.hiddenMetadataModules.get(i);
+                if (module.endsWith(suffix)) {
+                    CombinedBindListHudElement.hiddenMetadataModules.remove(i);
+                    clearedCount++;
+                }
+            }
+            
+            hudElement.save();
+            return "Cleared " + clearedCount + " hidden metadata modules from " + clientType;
+        } else {
+            int clearedCount = CombinedBindListHudElement.hiddenMetadataModules.size();
+            CombinedBindListHudElement.hiddenMetadataModules.clear();
+            hudElement.save();
+            return "Cleared " + clearedCount + " hidden metadata modules";
+        }
     }
 }

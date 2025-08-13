@@ -55,8 +55,7 @@ public class CombinedBindListPlugin extends Plugin {
     private static void saveToFile(String filePath, List<String> list) {
         try (Writer writer = new FileWriter(filePath)) {
             GSON.toJson(list, writer);
-        } catch (IOException e) {
-            // Безопасно игнорируем ошибки сохранения
+        } catch (IOException ignored) {
         }
     }
 
@@ -67,8 +66,7 @@ public class CombinedBindListPlugin extends Plugin {
             if (loaded != null) result.addAll(loaded);
         } catch (FileNotFoundException e) {
             saveToFile(filePath, new ArrayList<>());
-        } catch (IOException e) {
-            // Безопасно игнорируем ошибки загрузки
+        } catch (IOException ignored) {
         }
         return result;
     }

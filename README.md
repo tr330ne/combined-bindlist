@@ -6,7 +6,9 @@ RusherHack HUD Element to display keybinds and active modules from both Meteor a
 ## Options:
 - **Animations** - Animation of hiding/showing modules
 - **Sorting** - Sorting modules by Lexicographical/Alphabetical
-- **Case** - Default/Lowercase/Uppercase letters
+- **Case** - Default/Lowercase/Uppercase module letters
+- **KeyCase** - Default/Lowercase/Uppercase keybind letters
+- **MetaCase** - Default/Lowercase/Uppercase metadata letters
 - **ShowKeys** - Show keybind text for modules with keybinds
 - **RawKeys** - Display raw key names instead of formatted names
 - **ActiveUnbound** - Shows active modules without a keybind

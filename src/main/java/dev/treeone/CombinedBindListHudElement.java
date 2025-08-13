@@ -28,6 +28,8 @@ public class CombinedBindListHudElement extends ListHudElement {
     static List<String> hiddenMetadataModules = new ArrayList<>();
 
     private final EnumSetting<CaseType> caseSetting = new EnumSetting<>("Case", "", CaseType.Default);
+    private final EnumSetting<CaseType> keyCase = new EnumSetting<>("KeyCase", "", CaseType.Default);
+    private final EnumSetting<CaseType> metaCase = new EnumSetting<>("MetaCase", "", CaseType.Default);
     private final BooleanSetting showKeys = new BooleanSetting("ShowKeys", "Show keybind text for modules with keybinds", true);
     private final BooleanSetting rawKeys = new BooleanSetting("RawKeys", "Display raw key names instead of formatted names", false);
     private final BooleanSetting activeUnbound = new BooleanSetting("ActiveUnbound", "Shows active modules without a keybind", false);
@@ -79,11 +81,11 @@ public class CombinedBindListHudElement extends ListHudElement {
         mUBrackets.setAlphaAllowed(false);
         mBoundColor.setAlphaAllowed(false);
         mUnboundColor.setAlphaAllowed(false);
-        registerSettings(caseSetting, showKeys, rawKeys, activeUnbound, boundAsUnbound, hideBounded, boundedMeta, unboundMeta, stateKeys, stateBMeta, useStateBrackets, stateMBrackets, keyBStyle, metaBStyle, enabledColor, disabledColor, unboundColor, keybindsColor, bracketsColor, mBoundColor, mUnboundColor, mBrackets, mUBrackets);
+        registerSettings(caseSetting, keyCase, metaCase, showKeys, rawKeys, activeUnbound, boundAsUnbound, hideBounded, boundedMeta, unboundMeta, stateKeys, stateBMeta, useStateBrackets, stateMBrackets, keyBStyle, metaBStyle, enabledColor, disabledColor, unboundColor, keybindsColor, bracketsColor, mBoundColor, mUnboundColor, mBrackets, mUBrackets);
     }
 
     private String stripMinecraftColors(String text) {
-        return text == null ? null : text.replaceAll("[§&][0-9a-fk-orA-FK-OR]", "");
+        return text == null ? null : text.replaceAll("[Ã‚Â§&][0-9a-fk-orA-FK-OR]", "");
     }
 
     private static boolean checkMeteorAvailability() {
@@ -106,6 +108,7 @@ public class CombinedBindListHudElement extends ListHudElement {
 
     public void load() {
         this.color.setHidden(true);
+        this.color.setThemeSync(true);
         long currentTime = System.currentTimeMillis();
         if (currentTime - lastModuleLoadTime < MODULE_LOAD_COOLDOWN) return;
 
@@ -135,7 +138,7 @@ public class CombinedBindListHudElement extends ListHudElement {
             hiddenModules.addAll(CombinedBindListPlugin.loadConfig());
             hiddenMetadataModules.clear();
             hiddenMetadataModules.addAll(CombinedBindListPlugin.loadMetadataConfig());
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -184,7 +187,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -192,7 +195,7 @@ public class CombinedBindListHudElement extends ListHudElement {
         try {
             CombinedBindListPlugin.saveConfig(hiddenModules);
             CombinedBindListPlugin.saveMetadataConfig(hiddenMetadataModules);
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -204,13 +207,33 @@ public class CombinedBindListHudElement extends ListHudElement {
         }
     }
 
+    public Set<String> getDuplicateModules() {
+        try {
+            Map<String, Integer> moduleCount = new HashMap<>();
+            for (ModuleHolder module : modules) {
+                String id = module.getId();
+                moduleCount.put(id, moduleCount.getOrDefault(id, 0) + 1);
+            }
+
+            Set<String> duplicates = new HashSet<>();
+            for (Map.Entry<String, Integer> entry : moduleCount.entrySet()) {
+                if (entry.getValue() > 1) {
+                    duplicates.add(entry.getKey());
+                }
+            }
+            return duplicates;
+        } catch (Exception e) {
+            return new HashSet<>();
+        }
+    }
+
     @Override
     public void onEnable() {
         super.onEnable();
         try {
             load();
             rebuildModuleList();
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -226,7 +249,7 @@ public class CombinedBindListHudElement extends ListHudElement {
             getMembers().clear();
             load();
             rebuildModuleList();
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -294,7 +317,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 }
             }
 
-        } catch (Exception e) {
+        } catch (Exception ignored) {
         }
     }
 
@@ -431,7 +454,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 } else if (moduleType == ModuleType.RUSHER && rusherModule != null) {
                     return getRusherKeybind();
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
             return "unbound";
         }
@@ -466,7 +489,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String rawLabel = key.getLabel(true);
                     return formatRusherKeybind(rawLabel);
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
             return "unbound";
         }
@@ -517,7 +540,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                 if (keyName != null && !keyName.isEmpty()) {
                     return keyName.toUpperCase();
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
             return "KEY_" + glfwKey;
         }
@@ -582,7 +605,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                         return rawLabel.replaceAll("[\\p{Cntrl}\\p{So}]", "");
                     }
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
             return "unbound";
         }
@@ -602,7 +625,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String metadata = rusherModule.getMetadata();
                     return metadata.isEmpty() ? null : metadata;
                 }
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
             return null;
         }
@@ -680,6 +703,9 @@ public class CombinedBindListHudElement extends ListHudElement {
 
                 if (!hideBounded.getValue() && showKeys.getValue()) {
                     String keybind = stripMinecraftColors(rawKeys.getValue() ? module.getKeybindRaw() : module.getKeybind());
+                    if (!rawKeys.getValue()) {
+                        keybind = formatKeybindCase(keybind);
+                    }
                     int bracketColor = useStateBrackets.getValue() ?
                             (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
                             bracketsColor.getValue().getRGB();
@@ -716,6 +742,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String moduleMetadata = module.getMetadata();
                     if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
                         String cleanMetadata = stripMinecraftColors(moduleMetadata);
+                        cleanMetadata = formatMetadataCase(cleanMetadata);
                         int metaColor = stateBMeta.getValue() ?
                                 (module.isEnabled() ? enabledColor.getValue().getRGB() : disabledColor.getValue().getRGB()) :
                                 mBoundColor.getValue().getRGB();
@@ -777,6 +804,7 @@ public class CombinedBindListHudElement extends ListHudElement {
                     String moduleMetadata = module.getMetadata();
                     if (moduleMetadata != null && !moduleMetadata.trim().isEmpty()) {
                         String cleanMetadata = stripMinecraftColors(moduleMetadata);
+                        cleanMetadata = formatMetadataCase(cleanMetadata);
                         int metaColor = mUnboundColor.getValue().getRGB();
                         int metaBracketColor = mUBrackets.getValue().getRGB();
                         if (metaBStyle.getValue() != MetaBracketsStyle.None) {
@@ -823,6 +851,24 @@ public class CombinedBindListHudElement extends ListHudElement {
             case Uppercase -> name.toUpperCase();
             case Lowercase -> name.toLowerCase();
             default -> name;
+        };
+    }
+
+    private String formatKeybindCase(String keybind) {
+        if (keybind == null) return "unbound";
+        return switch (keyCase.getValue()) {
+            case Uppercase -> keybind.toUpperCase();
+            case Lowercase -> keybind.toLowerCase();
+            default -> keybind;
+        };
+    }
+
+    private String formatMetadataCase(String metadata) {
+        if (metadata == null) return null;
+        return switch (metaCase.getValue()) {
+            case Uppercase -> metadata.toUpperCase();
+            case Lowercase -> metadata.toLowerCase();
+            default -> metadata;
         };
     }
 }
