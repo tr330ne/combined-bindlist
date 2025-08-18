@@ -1,8 +1,8 @@
 {
-  "Plugin-Class": "dev.treeone.CombinedBindListPlugin",
+  "Plugin-Class": "treeone.combinedbindlist.CombinedBindListPlugin",
   "Name": "CombinedBindList",
   "Version": "${plugin_version}",
-  "Description": "RusherHack HUD Element to display keybinds and active modules from both Meteor and RusherHack, with advanced customization options, including the ability to modify individual modules, metadata, brackets, colors, and other.",
+  "Description": "Hud Element to display keybinds and active modules from both Meteor and Rusher, with advanced customization options, including the ability to modify individual modules, metadata, brackets, colors, and other.",
   "Authors": [
     "TreeOne"
   ],

@@ -1,10 +1,11 @@
 plugins {
-    id 'fabric-loom' version '1.2-SNAPSHOT'
+    id 'fabric-loom' version '1.11-SNAPSHOT'
     id 'maven-publish'
 }
 
 version = project.plugin_version
 group = project.maven_group
+archivesBaseName = project.plugin_name
 
 configurations {
     rusherhackApi
@@ -44,12 +45,12 @@ dependencies {
     //mojmap + parchment mappings
     mappings loom.layered() {
         officialMojangMappings()
-        parchment("org.parchmentmc.data:parchment-1.21.4:2024.12.29@zip")
+        parchment("org.parchmentmc.data:parchment-${project.parchment_version}@zip")
     }
 
-    rusherhackApi "org.rusherhack:rusherhack-api:1.21.4-SNAPSHOT"
+    rusherhackApi "org.rusherhack:rusherhack-api:$minecraft_version-SNAPSHOT"
 
-    modImplementation "meteordevelopment:meteor-client:0.5.5"
+    modImplementation "meteordevelopment:meteor-client:${project.meteor_version}"
 }
 
 loom {
@@ -84,7 +85,6 @@ java {
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
-    archivesBaseName = project.archives_base_name
 }
 
 processResources {
